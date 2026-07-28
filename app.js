@@ -2,15 +2,15 @@
   "use strict";
 
   const TOGGLE_DEFS = [
-    { key: "showDistrictColors", label: "District colors", default: true },
-    { key: "showDistrictLabels", label: "District names", default: true },
-    { key: "showDistrictNumbers", label: "District numbers", default: true },
-    { key: "showKeywords", label: "Keywords", default: false },
-    { key: "showLandmarks", label: "Landmarks", default: false },
-    { key: "showCostIndicators", label: "Cost indicators", default: false },
-    { key: "showCost", label: "Descriptions", default: false },
-    { key: "showStations", label: "Major stations", default: true },
-    { key: "showDirectConnections", label: "Direct connections", default: true }
+    { key: "showDistrictColors", label: "District colors", default: true, group: "Map essentials" },
+    { key: "showDistrictLabels", label: "District names", default: true, group: "Map essentials" },
+    { key: "showDistrictNumbers", label: "District numbers", default: true, group: "Map essentials" },
+    { key: "showCostIndicators", label: "Cost at a glance", default: true, group: "District story" },
+    { key: "showKeywords", label: "Vibe keywords", default: false, group: "District story" },
+    { key: "showLandmarks", label: "Landmarks", default: false, group: "District story" },
+    { key: "showCost", label: "Cost notes", default: false, group: "District story" },
+    { key: "showStations", label: "Major stations", default: true, group: "Transport" },
+    { key: "showDirectConnections", label: "Direct connections", default: true, group: "Transport" }
   ];
 
   const BASE_VIEW = { lat: 48.2082, lng: 16.3738, zoom: 11 };
@@ -18,11 +18,13 @@
   const BADGE_PANE = "districtBadgesPane";
 
   const COST_STYLE = {
-    very_expensive: { label: "Very expensive", color: "#8e3b46" },
-    expensive: { label: "Expensive", color: "#b65f3b" },
-    moderate: { label: "Moderate", color: "#7b8f3e" },
-    affordable: { label: "Affordable", color: "#2d7d63" }
+    very_expensive: { label: "Very expensive", color: "#eca9bb" },
+    expensive: { label: "Expensive", color: "#f3b59f" },
+    moderate: { label: "Moderate", color: "#f6df8a" },
+    affordable: { label: "Affordable", color: "#a8d9c3" }
   };
+  const DISTRICT_PALETTE = ["#f3b59f", "#a8d9c3", "#c5b8e7", "#a8d2e8", "#f6df8a", "#eca9bb"];
+  const MAX_COMPARISON_DISTRICTS = 3;
 
   const SPECIAL_HUBS = {
     airport: {
@@ -53,6 +55,7 @@
     searchText: "q",
     selectedCostTiers: "ct",
     connectedToDistrictId: "cd",
+    comparisonDistrictIds: "cmp",
     mapView: "m"
   };
 
@@ -81,6 +84,8 @@
 
   let state = {
     selectedDistrictId: null,
+    comparisonDistrictIds: new Set(),
+    hoverDistrictId: null,
     activeSpecialHub: null,
     dualHubSelections: [],
     showDistrictColors: true,
@@ -101,22 +106,30 @@
   document.addEventListener("DOMContentLoaded", init);
 
   async function init() {
-    dataset = await loadDataset();
-    if (!dataset || !Array.isArray(dataset.features)) {
-      throw new Error("Dataset is missing or invalid");
-    }
-
-    document.addEventListener("keydown", (e) => { if (e.key === "Shift") shiftKeyHeld = true; });
-    document.addEventListener("keyup", (e) => { if (e.key === "Shift") shiftKeyHeld = false; });
-
-    prepareData(dataset.features);
-    readStateFromUrl();
     cacheUi();
-    buildFilterControls();
-    buildToggleControls();
-    bindUiEvents();
-    initMap();
-    renderAll();
+    document.body.dataset.appState = "loading";
+
+    try {
+      dataset = await loadDataset();
+      if (!dataset || !Array.isArray(dataset.features)) {
+        throw new Error("Dataset is missing or invalid");
+      }
+
+      document.addEventListener("keydown", (e) => { if (e.key === "Shift") shiftKeyHeld = true; });
+      document.addEventListener("keyup", (e) => { if (e.key === "Shift") shiftKeyHeld = false; });
+
+      prepareData(dataset.features);
+      readStateFromUrl();
+      buildFilterControls();
+      buildToggleControls();
+      bindUiEvents();
+      initMap();
+      renderAll();
+      document.body.dataset.appState = "ready";
+    } catch (error) {
+      console.error("Map of Vienna could not initialize", error);
+      showAppError();
+    }
   }
 
   async function loadDataset() {
@@ -597,8 +610,7 @@
   }
 
   function colorForDistrictId(id) {
-    const hue = (id * 47) % 360;
-    return `hsl(${hue}, 64%, 62%)`;
+    return DISTRICT_PALETTE[(id - 1) % DISTRICT_PALETTE.length];
   }
 
   function normalizeText(value) {
@@ -618,27 +630,50 @@
 
     ui.clearFiltersBtn = document.getElementById("clearFiltersBtn");
     ui.clearSelectionBtn = document.getElementById("clearSelectionBtn");
+    ui.resetMapBtn = document.getElementById("resetMapBtn");
     ui.districtInfo = document.getElementById("districtInfo");
+    ui.comparisonInfo = document.getElementById("comparisonInfo");
     ui.legend = document.getElementById("legend");
+    ui.mapStatus = document.getElementById("mapStatus");
+    ui.mapEmpty = document.getElementById("mapEmpty");
+    ui.mapEmptyClearBtn = document.getElementById("mapEmptyClearBtn");
+    ui.mapError = document.getElementById("mapError");
+    ui.retryLoadBtn = document.getElementById("retryLoadBtn");
   }
 
   function buildToggleControls() {
     ui.toggleControls.innerHTML = "";
+    const groups = new Map();
     TOGGLE_DEFS.forEach((toggleDef) => {
-      const label = document.createElement("label");
-      label.className = "checkline";
+      if (!groups.has(toggleDef.group)) {
+        groups.set(toggleDef.group, []);
+      }
+      groups.get(toggleDef.group).push(toggleDef);
+    });
 
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = Boolean(state[toggleDef.key]);
-      checkbox.dataset.toggleKey = toggleDef.key;
+    groups.forEach((toggleDefs, groupName) => {
+      const fieldset = document.createElement("fieldset");
+      fieldset.className = "control-group";
+      const legend = document.createElement("legend");
+      legend.textContent = groupName;
+      const list = document.createElement("div");
+      list.className = "toggle-list";
 
-      const span = document.createElement("span");
-      span.textContent = toggleDef.label;
+      toggleDefs.forEach((toggleDef) => {
+        const label = document.createElement("label");
+        label.className = "checkline";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(state[toggleDef.key]);
+        checkbox.dataset.toggleKey = toggleDef.key;
+        const span = document.createElement("span");
+        span.textContent = toggleDef.label;
+        label.append(checkbox, span);
+        list.appendChild(label);
+      });
 
-      label.appendChild(checkbox);
-      label.appendChild(span);
-      ui.toggleControls.appendChild(label);
+      fieldset.append(legend, list);
+      ui.toggleControls.appendChild(fieldset);
     });
   }
 
@@ -698,6 +733,13 @@
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function formatCostTier(value) {
+    if (COST_STYLE[value]) {
+      return COST_STYLE[value].label;
+    }
+    return value ? formatChipValue(value) : "Not listed";
+  }
+
   function bindUiEvents() {
     ui.toggleControls.addEventListener("change", (event) => {
       const target = event.target;
@@ -748,10 +790,55 @@
 
     ui.clearSelectionBtn.addEventListener("click", () => {
       state.selectedDistrictId = null;
+      state.comparisonDistrictIds = new Set();
       state.activeSpecialHub = null;
       state.dualHubSelections = [];
       renderAll();
     });
+
+    ui.resetMapBtn.addEventListener("click", () => {
+      state.selectedDistrictId = null;
+      state.comparisonDistrictIds = new Set();
+      state.activeSpecialHub = null;
+      state.dualHubSelections = [];
+      state.searchText = "";
+      state.selectedCostTiers = new Set();
+      state.connectedToDistrictId = null;
+      TOGGLE_DEFS.forEach((toggle) => {
+        state[toggle.key] = toggle.default;
+      });
+      buildFilterControls();
+      buildToggleControls();
+      if (map && districtLayer) {
+        suppressUrlSync = true;
+        map.fitBounds(districtLayer.getBounds(), { padding: [28, 28] });
+        suppressUrlSync = false;
+      }
+      renderAll();
+    });
+
+    ui.comparisonInfo.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-remove-comparison]");
+      if (!button) {
+        return;
+      }
+      const districtId = Number(button.dataset.removeComparison);
+      state.comparisonDistrictIds.delete(districtId);
+      if (state.selectedDistrictId === districtId) {
+        state.selectedDistrictId = Array.from(state.comparisonDistrictIds).at(-1) || null;
+      }
+      renderAll();
+    });
+
+    ui.mapEmptyClearBtn.addEventListener("click", () => {
+      state.searchText = "";
+      state.selectedCostTiers = new Set();
+      state.connectedToDistrictId = null;
+      buildFilterControls();
+      renderAll();
+    });
+
+    ui.retryLoadBtn.addEventListener("click", () => window.location.reload());
   }
 
   function toggleSetValue(set, value) {
@@ -765,18 +852,19 @@
   function initMap() {
     map = L.map("map", {
       preferCanvas: true,
-      zoomControl: true,
+      zoomControl: false,
       minZoom: 10,
-      maxZoom: 15
+      maxZoom: 15,
+      attributionControl: false
     });
+
+    L.control.zoom({ position: "topright" }).addTo(map);
 
     createOverlayPanes();
 
     canvasRenderer = L.canvas({ padding: 0.2 });
 
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO',
       maxZoom: 20,
       subdomains: "abcd"
     }).addTo(map);
@@ -788,11 +876,33 @@
         const districtId = feature.properties._districtId;
         districtLayerById.set(districtId, layer);
 
-        layer.on("click", () => {
-          state.activeSpecialHub = null;
-          state.dualHubSelections = [];
-          state.selectedDistrictId = state.selectedDistrictId === districtId ? null : districtId;
-          renderAll();
+        layer.bindTooltip(`${districtId}. ${escapeHtml(feature.properties.name)}`, {
+          className: "station-tooltip",
+          direction: "top",
+          sticky: true
+        });
+
+        layer.on("click", (event) => {
+          const additiveSelection = Boolean(event.originalEvent?.ctrlKey || event.originalEvent?.metaKey);
+          selectDistrict(districtId, additiveSelection);
+        });
+        layer.on("mouseover", () => {
+          state.hoverDistrictId = districtId;
+          const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+          renderDistrictStyles(
+            computeMatchingDistrictIds(),
+            effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub) : new Set(),
+            computeDualHubConnectedDistricts()
+          );
+        });
+        layer.on("mouseout", () => {
+          state.hoverDistrictId = null;
+          const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+          renderDistrictStyles(
+            computeMatchingDistrictIds(),
+            effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub) : new Set(),
+            computeDualHubConnectedDistricts()
+          );
         });
       }
     }).addTo(map);
@@ -822,6 +932,34 @@
     document.addEventListener("keydown", onGlobalKeyDown);
   }
 
+  function selectDistrict(districtId, additiveSelection) {
+    state.activeSpecialHub = null;
+    state.dualHubSelections = [];
+
+    if (!additiveSelection) {
+      state.comparisonDistrictIds = new Set([districtId]);
+      state.selectedDistrictId = districtId;
+      renderAll();
+      return;
+    }
+
+    if (state.comparisonDistrictIds.has(districtId)) {
+      state.comparisonDistrictIds.delete(districtId);
+      state.selectedDistrictId = Array.from(state.comparisonDistrictIds).at(-1) || null;
+      renderAll();
+      return;
+    }
+
+    if (state.comparisonDistrictIds.size >= MAX_COMPARISON_DISTRICTS) {
+      setMapStatus(`Your desk holds ${MAX_COMPARISON_DISTRICTS} districts. Remove one before adding another.`);
+      return;
+    }
+
+    state.comparisonDistrictIds.add(districtId);
+    state.selectedDistrictId = districtId;
+    renderAll();
+  }
+
   function createOverlayPanes() {
     if (!map.getPane(LABEL_PANE)) {
       map.createPane(LABEL_PANE);
@@ -848,6 +986,7 @@
       return;
     }
     state.selectedDistrictId = null;
+    state.comparisonDistrictIds = new Set();
     state.activeSpecialHub = null;
     state.dualHubSelections = [];
     renderAll();
@@ -891,6 +1030,8 @@
   function districtStyleById(districtId, matchSet, hubConnected, dualHubConnected) {
     const district = districtById.get(districtId);
     const isSelected = districtId === state.selectedDistrictId;
+    const isCompared = state.comparisonDistrictIds.has(districtId) && !isSelected;
+    const isHovered = districtId === state.hoverDistrictId;
     const connectedIds = state.showDirectConnections ? getConnectedDistrictIds(state.selectedDistrictId) : new Set();
     const isConnected = connectedIds.has(districtId);
     const hasActiveFilters = doesStateHaveActiveFilters();
@@ -900,54 +1041,83 @@
     const hubKind = effectiveHub?.specialKind;
     const isDualHubConnected = dualHubConnected && dualHubConnected.has(districtId);
 
-    const baseFill = state.showDistrictColors ? district.properties._color : "#d7dee7";
+    const hasActiveSelection = Boolean(state.selectedDistrictId || effectiveHub || state.dualHubSelections.length);
+    const isBackground = hasActiveSelection && !isSelected && !isCompared && !isConnected && !isHubConnected && !isDualHubConnected;
+
+    const baseFill = state.showDistrictColors ? district.properties._color : "#f5ead6";
 
     let fillColor;
     if (isSelected) {
-      fillColor = "#ffba5a";
+      fillColor = "#f08b62";
+    } else if (isCompared) {
+      fillColor = "#eca9bb";
     } else if (isConnected) {
-      fillColor = "#8ee5d5";
+      fillColor = "#94d3c0";
     } else if (isDualHubConnected) {
-      fillColor = "#fff3cd";
+      fillColor = "#f6df8a";
     } else if (isHubConnected) {
-      fillColor = hubKind === "airport" ? "#ede4fc" : "#fce4e4";
+      fillColor = hubKind === "airport" ? "#c5b8e7" : "#f3b59f";
     } else if (isMatch && hasActiveFilters) {
-      fillColor = "#b9fbc0";
+      fillColor = "#a8d9c3";
+    } else if (hasActiveFilters && !isMatch) {
+      fillColor = "#d0cdc5";
+    } else if (isBackground) {
+      fillColor = "#d0cdc5";
     } else {
       fillColor = baseFill;
     }
 
     let borderColor;
     if (isSelected) {
-      borderColor = "#c0392b";
+      borderColor = "#39342e";
+    } else if (isHovered) {
+      borderColor = "#39342e";
     } else if (isConnected) {
-      borderColor = "#0f766e";
+      borderColor = "#397b68";
     } else if (isDualHubConnected) {
-      borderColor = "#ff8c00";
+      borderColor = "#8b7430";
     } else if (isHubConnected) {
-      borderColor = hubKind === "airport" ? "#6a00f4" : "#d90429";
+      borderColor = hubKind === "airport" ? "#625785" : "#a64e49";
+    } else if (hasActiveFilters && !isMatch) {
+      borderColor = "#b8b4ac";
+    } else if (isBackground) {
+      borderColor = "#b8b4ac";
     } else {
-      borderColor = "#263445";
+      borderColor = "#39342e";
     }
 
     let weight;
     if (isSelected) {
-      weight = 3.2;
+      weight = 3;
+    } else if (isHovered) {
+      weight = 2.5;
+    } else if (isCompared) {
+      weight = 2.4;
     } else if (isConnected || isDualHubConnected || isHubConnected) {
-      weight = 2.6;
-    } else if (isMatch && hasActiveFilters) {
       weight = 2.2;
+    } else if (isMatch && hasActiveFilters) {
+      weight = 2;
+    } else if (hasActiveFilters && !isMatch) {
+      weight = 1;
+    } else if (isBackground) {
+      weight = 1;
     } else {
-      weight = 1.3;
+      weight = 1.5;
     }
 
     let fillOpacity;
     if (isSelected) {
-      fillOpacity = 0.84;
+      fillOpacity = 0.98;
+    } else if (isHovered) {
+      fillOpacity = 1;
+    } else if (hasActiveFilters && !isMatch) {
+      fillOpacity = 0.45;
+    } else if (isBackground) {
+      fillOpacity = 0.45;
     } else if (isDualHubConnected || isHubConnected || (isMatch && hasActiveFilters)) {
-      fillOpacity = 0.72;
+      fillOpacity = 0.94;
     } else {
-      fillOpacity = 0.52;
+      fillOpacity = 0.55;
     }
 
     return {
@@ -955,8 +1125,8 @@
       weight,
       fillColor,
       fillOpacity,
-      opacity: 0.92,
-      dashArray: hasActiveFilters && !isMatch && !isHubConnected && !isDualHubConnected ? "3 5" : ""
+      opacity: hasActiveFilters && !isMatch && !isHubConnected && !isDualHubConnected ? 0.5 : (isBackground ? 0.5 : 1),
+      dashArray: ""
     };
   }
 
@@ -974,8 +1144,10 @@
     renderLandmarks(matchSet);
     renderStations(matchSet, dualHubConnected);
     renderConnectionLines(matchSet, hubConnected, dualHubConnected);
+    renderComparisonInfo();
     renderSelectedDistrictInfo();
     renderLegend();
+    renderMapFeedback(matchSet);
     renderUrlOnly();
   }
 
@@ -1011,11 +1183,12 @@
         text = String(districtId);
       }
 
+      const isDim = doesStateHaveActiveFilters() && !matchSet.has(districtId);
       const marker = L.marker([properties._centroid.lat, properties._centroid.lng], {
         keyboard: false,
         interactive: false,
         pane: LABEL_PANE,
-        icon: createAutoDivIcon("district-label", escapeHtml(text), { pane: LABEL_PANE })
+        icon: createAutoDivIcon(`district-label${isDim ? " dim" : ""}`, escapeHtml(text), { pane: LABEL_PANE })
       });
 
       labelLayer.addLayer(marker);
@@ -1072,10 +1245,10 @@
         const marker = L.circleMarker([Number(landmark.lat), Number(landmark.lng)], {
           renderer: canvasRenderer,
           radius: 4.5,
-          color: "#0f172a",
+          color: "#39342e",
           weight: 1,
-          fillColor: "#f8cc49",
-          fillOpacity: 0.92
+          fillColor: "#f6df8a",
+          fillOpacity: 1
         });
 
         marker.bindTooltip(`${escapeHtml(landmark.name)}<br>${districtId}. ${escapeHtml(properties.name)}`, {
@@ -1243,7 +1416,7 @@
           interactive: true,
           icon: L.divIcon({
             className: hbfClass,
-            html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#d90429" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="20" r="1.5" fill="#d90429" stroke="none"/><circle cx="16" cy="20" r="1.5" fill="#d90429" stroke="none"/><path d="M8 17l-2 3"/><path d="M16 17l2 3"/></svg>',
+            html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#a64e49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="20" r="1.5" fill="#a64e49" stroke="none"/><circle cx="16" cy="20" r="1.5" fill="#a64e49" stroke="none"/><path d="M8 17l-2 3"/><path d="M16 17l2 3"/></svg>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           })
@@ -1266,6 +1439,7 @@
               }
             }
             state.selectedDistrictId = null;
+            state.comparisonDistrictIds = new Set();
             renderAll();
             return;
           }
@@ -1274,6 +1448,7 @@
           } else {
             state.activeSpecialHub = station;
             state.selectedDistrictId = null;
+            state.comparisonDistrictIds = new Set();
           }
           state.dualHubSelections = [];
           renderAll();
@@ -1295,7 +1470,7 @@
           interactive: true,
           icon: L.divIcon({
             className: airportClass,
-            html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#6a00f4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>',
+            html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#625785" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           })
@@ -1318,6 +1493,7 @@
               }
             }
             state.selectedDistrictId = null;
+            state.comparisonDistrictIds = new Set();
             renderAll();
             return;
           }
@@ -1326,6 +1502,7 @@
           } else {
             state.activeSpecialHub = station;
             state.selectedDistrictId = null;
+            state.comparisonDistrictIds = new Set();
           }
           state.dualHubSelections = [];
           renderAll();
@@ -1344,18 +1521,13 @@
       const marker = L.circleMarker([station.lat, station.lng], {
         renderer: canvasRenderer,
         radius,
-        color: "#12202e",
-        weight: 1.1,
-        fillColor: "#4ea8de",
-        fillOpacity: 0.9
+        color: "#39342e",
+        weight: 1.3,
+        fillColor: "#a8d2e8",
+        fillOpacity: 1
       });
 
-        marker.on("click", () => {
-          state.activeSpecialHub = null;
-          state.dualHubSelections = [];
-          state.selectedDistrictId = station.districtId;
-          renderAll();
-        });
+      marker.on("click", () => selectDistrict(station.districtId, false));
 
       marker.bindTooltip(tooltipContent, {
         className: "station-tooltip",
@@ -1398,7 +1570,7 @@
           ],
           {
             renderer: canvasRenderer,
-            color: "#007f5f",
+            color: "#397b68",
             weight: 2.1,
             opacity: 0.86,
             dashArray: "8 5"
@@ -1422,7 +1594,7 @@
 
     if (effectiveHub && !isDualHubMode) {
       const hub = effectiveHub;
-      const hubColor = hub.specialKind === "airport" ? "#6a00f4" : "#d90429";
+      const hubColor = hub.specialKind === "airport" ? "#625785" : "#a64e49";
       const hubDashArray = hub.specialKind === "airport" ? "2 8" : "12 6";
 
       hubConnected.forEach((districtId) => {
@@ -1457,7 +1629,7 @@
 
     if (state.dualHubSelections.length === 2 && dualHubConnected.size) {
       state.dualHubSelections.forEach((hub) => {
-        const hubColor = hub.specialKind === "airport" ? "#6a00f4" : "#d90429";
+        const hubColor = hub.specialKind === "airport" ? "#625785" : "#a64e49";
         const hubDashArray = hub.specialKind === "airport" ? "2 8" : "12 6";
 
         dualHubConnected.forEach((districtId) => {
@@ -1509,8 +1681,8 @@
 
         const style =
           station.specialKind === "airport"
-            ? { color: "#6a00f4", dashArray: "2 8" }
-            : { color: "#d90429", dashArray: "12 6" };
+            ? { color: "#625785", dashArray: "2 8" }
+            : { color: "#a64e49", dashArray: "12 6" };
 
         const line = L.polyline(
           [
@@ -1549,6 +1721,82 @@
     return tokens;
   }
 
+  function renderComparisonInfo() {
+    const comparisonDistricts = Array.from(state.comparisonDistrictIds)
+      .map((districtId) => districtById.get(districtId))
+      .filter(Boolean);
+
+    if (comparisonDistricts.length < 2) {
+      ui.comparisonInfo.innerHTML = "";
+      return;
+    }
+
+    ui.comparisonInfo.innerHTML = `
+      <p class="comparison-label">Comparing ${comparisonDistricts.length} districts</p>
+      <div class="comparison-set">
+        ${comparisonDistricts.map(buildComparisonCard).join("")}
+      </div>
+    `;
+  }
+
+  function buildComparisonCard(feature) {
+    const properties = feature.properties;
+    const districtId = properties._districtId;
+    const cost = properties.costOfLiving || {};
+    const ubahnLines = properties.transport?.ubahn || [];
+    const topKeywords = (properties.keywords || []).slice(0, 2).join(" · ") || "No keywords listed";
+
+    return `
+      <article class="compare-card">
+        <button class="compare-remove" type="button" data-remove-comparison="${districtId}" aria-label="Remove ${escapeHtml(properties.name)} from comparison">×</button>
+        <h3>${districtId}. ${escapeHtml(properties.name)}</h3>
+        <p><strong>${escapeHtml(formatCostTier(cost.tier))}</strong> · ${escapeHtml(ubahnLines.length ? ubahnLines.join(", ") : "No U-Bahn")}</p>
+        <p>${escapeHtml(topKeywords)}</p>
+      </article>
+    `;
+  }
+
+  function renderMapFeedback(matchSet) {
+    const hasFilters = doesStateHaveActiveFilters();
+    const resultCount = matchSet.size;
+    const selectedCount = state.comparisonDistrictIds.size;
+    const noMatches = hasFilters && resultCount === 0;
+
+    ui.mapEmpty.hidden = !noMatches;
+    if (noMatches) {
+      setMapStatus("No districts match your current filters.");
+      return;
+    }
+
+    if (selectedCount > 1) {
+      setMapStatus(`${selectedCount} districts are on your desk. Ctrl/Cmd+click a district to add or remove it.`);
+      return;
+    }
+
+    if (state.selectedDistrictId) {
+      const district = districtById.get(state.selectedDistrictId);
+      setMapStatus(`${district?.properties?.name || "District"} selected. Ctrl/Cmd+click another district to compare.`);
+      return;
+    }
+
+    if (hasFilters) {
+      setMapStatus(`${resultCount} of ${districts.length} districts match your filters.`);
+      return;
+    }
+
+    setMapStatus("Click a painted district to inspect it. Ctrl/Cmd+click adds it to your desk.");
+  }
+
+  function setMapStatus(message) {
+    ui.mapStatus.textContent = message;
+  }
+
+  function showAppError() {
+    document.body.dataset.appState = "error";
+    ui.mapError.hidden = false;
+    ui.mapStatus.textContent = "The map is unavailable right now.";
+  }
+
   function renderSelectedDistrictInfo() {
     if (state.dualHubSelections.length === 2) {
       const dualConnected = computeDualHubConnectedDistricts();
@@ -1585,7 +1833,7 @@
         .join("");
 
       ui.districtInfo.innerHTML = `
-        <h3>${escapeHtml(hub.name)} <span style="color:#ff8c00">[Shift+click]</span></h3>
+        <h3>${escapeHtml(hub.name)} <span style="color:#f08b62">[Shift+click]</span></h3>
         <p class="muted">${hub.specialKind === "airport" ? "Airport" : "Main railway station"}</p>
         <p><strong>Lines:</strong> ${escapeHtml(hub.lines.join(", "))}</p>
         <p class="muted">Shift+click another hub (airport or HBF) to see districts connected to <strong>both</strong>.</p>
@@ -1659,7 +1907,7 @@
     ui.districtInfo.innerHTML = `
       <h3>${properties._districtId}. ${escapeHtml(properties.name)}</h3>
       <p class="muted">${website}</p>
-      <p><strong>Cost:</strong> ${escapeHtml(cost.tier || "n/a")} - ${escapeHtml(cost.description || "No description")}</p>
+      <p><strong>Cost:</strong> ${escapeHtml(formatCostTier(cost.tier))} - ${escapeHtml(cost.description || "No description")}</p>
       <div class="tags">${keywordsHtml || '<span class="muted">No keywords</span>'}</div>
       <p><strong>Landmarks</strong></p>
       <ul>${landmarksHtml || "<li>None listed</li>"}</ul>
@@ -1700,41 +1948,33 @@
     const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
     const hubConnectedCount = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub).size : 0;
     const dualHubConnectedCount = state.dualHubSelections.length === 2 ? computeDualHubConnectedDistricts().size : 0;
-    const legendRows = [
-      '<div><strong>Legend</strong></div>',
-      '<div class="row"><span class="swatch" style="background:#ffba5a"></span> selected district</div>',
-      '<div class="row"><span class="swatch" style="background:#8ee5d5"></span> directly connected district</div>',
-      '<div class="row"><span class="swatch" style="background:#d7dee7"></span> neutral district color</div>'
-    ];
-
-    if (state.showCost) {
-      Object.entries(COST_STYLE).forEach(([tier, style]) => {
-        legendRows.push(`<div class="row"><span class="swatch" style="background:${style.color}"></span>${escapeHtml(style.label)}</div>`);
-      });
-    }
+    const legendRows = [];
 
     if (state.dualHubSelections.length === 2) {
       legendRows.push(
-        '<div class="row"><span class="swatch" style="background:#fff3cd"></span> connected to both hubs</div>',
+        '<div><strong>Hub match</strong></div>',
+        '<div class="row"><span class="swatch" style="background:#f6df8a"></span> connected to both hubs</div>',
         `<div class="row muted">Districts connected to both hubs: <span class="mono">${dualHubConnectedCount}</span></div>`
+      );
+    } else if (effectiveHub) {
+      legendRows.push(
+        '<div><strong>Hub connection</strong></div>',
+        `<div class="row muted"><span class="mono">${hubConnectedCount}</span> districts share a direct line</div>`
+      );
+    } else if (state.selectedDistrictId) {
+      legendRows.push(
+        '<div><strong>District selection</strong></div>',
+        '<div class="row"><span class="swatch" style="background:#f08b62"></span> selected district</div>',
+        `<div class="row"><span class="swatch" style="background:#94d3c0"></span> ${connectedCount} direct connections</div>`
+      );
+    } else if (activeFilters) {
+      legendRows.push(
+        '<div><strong>Filter result</strong></div>',
+        `<div class="row"><span class="swatch" style="background:#a8d9c3"></span> ${computeMatchingDistrictIds().size} matching districts</div>`
       );
     }
 
-    legendRows.push(
-      `<div class="row muted">Connections highlighted: <span class="mono">${connectedCount}</span></div>` +
-        (effectiveHub
-          ? ` | Hub-connected districts: <span class="mono">${hubConnectedCount}</span>`
-          : ""),
-      '<div class="row"><span class="swatch" style="background:#d90429"></span> direct to HBF</div>',
-      '<div class="row"><span class="swatch" style="background:#6a00f4"></span> direct to airport</div>',
-      '<div class="row muted">Shift+click airport &amp; HBF to find districts connected to both</div>',
-      `<div class="row muted">Filters active: <span class="mono">${activeFilters ? "yes" : "no"}</span></div>`
-    );
-
     legendElement.innerHTML = legendRows.join("");
-    legendElement.style.display = "block";
-    legendElement.style.visibility = "visible";
-    legendElement.style.opacity = "1";
   }
 
   function ensureLegendElement() {
@@ -1867,6 +2107,9 @@
     if (state.connectedToDistrictId) {
       params.set(urlKeys.connectedToDistrictId, String(state.connectedToDistrictId));
     }
+    if (state.comparisonDistrictIds.size > 1) {
+      params.set(urlKeys.comparisonDistrictIds, Array.from(state.comparisonDistrictIds).sort((a, b) => a - b).join(","));
+    }
 
     if (map) {
       const center = map.getCenter();
@@ -1885,7 +2128,14 @@
     const selectedDistrictId = parseInteger(params.get(urlKeys.selectedDistrictId));
     if (selectedDistrictId && districtById.has(selectedDistrictId)) {
       state.selectedDistrictId = selectedDistrictId;
+      state.comparisonDistrictIds = new Set([selectedDistrictId]);
     }
+    const comparisonDistrictIds = parseCsvParam(params.get(urlKeys.comparisonDistrictIds)).map((entry) => parseInteger(entry)).filter(Boolean);
+    comparisonDistrictIds.forEach((districtId) => {
+      if (districtById.has(districtId)) {
+        state.comparisonDistrictIds.add(districtId);
+      }
+    });
 
     TOGGLE_DEFS.forEach((toggle) => {
       const value = params.get(urlKeys[toggle.key]);

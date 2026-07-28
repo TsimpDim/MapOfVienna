@@ -262,32 +262,37 @@
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
+  <body data-app-state="loading">
     <div class="app-shell">
-      <aside class="panel">
+      <aside class="panel" aria-label="Map controls and district details">
         <header class="panel-header">
+          <p class="kicker"><span aria-hidden="true">23</span> Vienna districts</p>
           <h1>Map of Vienna</h1>
           <p>
-            Compare districts by cost of living, public transport, landmarks,
-            and neighborhood vibe.
+            Choose a district to begin. Add up to three to your desk to compare
+            cost, connections, landmarks, and local character.
           </p>
         </header>
 
-        <section class="card">
-          <h2>Layers</h2>
-          <div class="control-grid" id="toggleControls"></div>
+        <section class="field-guide" aria-labelledby="guideTitle">
+          <h2 id="guideTitle">Find your bearings</h2>
+          <p>Click a district to inspect it. Use <kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + click to build a comparison set.</p>
         </section>
 
         <section class="card selected-card">
-          <h2>Selected District</h2>
+          <div class="section-heading">
+            <h2>District desk</h2>
+            <button id="clearSelectionBtn" class="text-button" type="button">Clear</button>
+          </div>
+          <div id="comparisonInfo" class="comparison-info" aria-live="polite"></div>
           <div id="districtInfo" class="district-info">
             <p class="muted">
-              Click a district to inspect full details and direct connections.
+              Start with a district that catches your eye.
             </p>
           </div>
         </section>
 
-        <section class="card">
+        <section class="card filters-card">
           <h2>Filters</h2>
 
           <label class="field-label" for="districtSearch"
@@ -309,15 +314,38 @@
 
           <div class="button-row">
             <button id="clearFiltersBtn" type="button">Clear filters</button>
-            <button id="clearSelectionBtn" type="button">
-              Clear selection
-            </button>
+            <button id="resetMapBtn" type="button">Reset map</button>
           </div>
+        </section>
+
+        <section class="card layer-card">
+          <h2>Map layers</h2>
+          <p class="card-intro">Keep the essentials visible; reveal detail only when it helps.</p>
+          <div class="control-grid" id="toggleControls"></div>
         </section>
       </aside>
 
       <main class="map-wrap">
         <div id="map"></div>
+        <div class="map-hud" aria-hidden="true">
+          <span class="map-hud-mark">M</span>
+          <span>Explore by district</span>
+        </div>
+        <p id="mapStatus" class="map-status" role="status" aria-live="polite"></p>
+        <div id="mapLoading" class="map-state map-loading" role="status" aria-live="polite">
+          <span class="loading-orbit" aria-hidden="true"></span>
+          <p>Drawing the city...</p>
+        </div>
+        <div id="mapEmpty" class="map-state map-empty" hidden>
+          <p class="state-title">No district matches those filters.</p>
+          <p>Clear a filter and widen the search.</p>
+          <button id="mapEmptyClearBtn" type="button">Clear filters</button>
+        </div>
+        <div id="mapError" class="map-state map-error" hidden role="alert">
+          <p class="state-title">The district map could not load.</p>
+          <p>Check your connection, then try drawing it again.</p>
+          <button id="retryLoadBtn" type="button">Try again</button>
+        </div>
         <div id="legend" class="legend"></div>
       </main>
     </div>
@@ -330,7 +358,7 @@
           padding: 32px 20px;
           font-family: system-ui, sans-serif;
           line-height: 1.6;
-          color: #16222f;
+           color: #2d2a26;
         "
       >
         <h1>Map of Vienna</h1>
