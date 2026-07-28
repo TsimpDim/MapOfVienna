@@ -77,10 +77,12 @@
 
   const ui = {};
   let suppressUrlSync = false;
+  let shiftKeyHeld = false;
 
   let state = {
     selectedDistrictId: null,
     activeSpecialHub: null,
+    dualHubSelections: [],
     showDistrictColors: true,
     showDistrictLabels: true,
     showDistrictNumbers: true,
@@ -103,6 +105,9 @@
     if (!dataset || !Array.isArray(dataset.features)) {
       throw new Error("Dataset is missing or invalid");
     }
+
+    document.addEventListener("keydown", (e) => { if (e.key === "Shift") shiftKeyHeld = true; });
+    document.addEventListener("keyup", (e) => { if (e.key === "Shift") shiftKeyHeld = false; });
 
     prepareData(dataset.features);
     readStateFromUrl();
@@ -744,6 +749,7 @@
     ui.clearSelectionBtn.addEventListener("click", () => {
       state.selectedDistrictId = null;
       state.activeSpecialHub = null;
+      state.dualHubSelections = [];
       renderAll();
     });
   }
@@ -784,6 +790,7 @@
 
         layer.on("click", () => {
           state.activeSpecialHub = null;
+          state.dualHubSelections = [];
           state.selectedDistrictId = state.selectedDistrictId === districtId ? null : districtId;
           renderAll();
         });
@@ -837,11 +844,12 @@
     if (event.key !== "Escape") {
       return;
     }
-    if (!state.selectedDistrictId && !state.activeSpecialHub) {
+    if (!state.selectedDistrictId && !state.activeSpecialHub && !state.dualHubSelections.length) {
       return;
     }
     state.selectedDistrictId = null;
     state.activeSpecialHub = null;
+    state.dualHubSelections = [];
     renderAll();
   }
 
@@ -862,22 +870,35 @@
     return connected;
   }
 
+  function computeDualHubConnectedDistricts() {
+    if (state.dualHubSelections.length !== 2) {
+      return new Set();
+    }
+    const connected0 = computeSpecialHubConnectedDistricts(state.dualHubSelections[0]);
+    const connected1 = computeSpecialHubConnectedDistricts(state.dualHubSelections[1]);
+    return new Set([...connected0].filter((id) => connected1.has(id)));
+  }
+
   function styleForDistrictLayer(feature) {
     const districtId = feature.properties._districtId;
     const matchSet = computeMatchingDistrictIds();
-    const hubConnected = state.activeSpecialHub ? computeSpecialHubConnectedDistricts(state.activeSpecialHub) : new Set();
-    return districtStyleById(districtId, matchSet, hubConnected);
+    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+    const hubConnected = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub) : new Set();
+    const dualHubConnected = computeDualHubConnectedDistricts();
+    return districtStyleById(districtId, matchSet, hubConnected, dualHubConnected);
   }
 
-  function districtStyleById(districtId, matchSet, hubConnected) {
+  function districtStyleById(districtId, matchSet, hubConnected, dualHubConnected) {
     const district = districtById.get(districtId);
     const isSelected = districtId === state.selectedDistrictId;
     const connectedIds = state.showDirectConnections ? getConnectedDistrictIds(state.selectedDistrictId) : new Set();
     const isConnected = connectedIds.has(districtId);
     const hasActiveFilters = doesStateHaveActiveFilters();
     const isMatch = matchSet.has(districtId);
-    const isHubConnected = state.activeSpecialHub && hubConnected && hubConnected.has(districtId);
-    const hubKind = state.activeSpecialHub?.specialKind;
+    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+    const isHubConnected = effectiveHub && hubConnected && hubConnected.has(districtId);
+    const hubKind = effectiveHub?.specialKind;
+    const isDualHubConnected = dualHubConnected && dualHubConnected.has(districtId);
 
     const baseFill = state.showDistrictColors ? district.properties._color : "#d7dee7";
 
@@ -886,6 +907,8 @@
       fillColor = "#ffba5a";
     } else if (isConnected) {
       fillColor = "#8ee5d5";
+    } else if (isDualHubConnected) {
+      fillColor = "#fff3cd";
     } else if (isHubConnected) {
       fillColor = hubKind === "airport" ? "#ede4fc" : "#fce4e4";
     } else if (isMatch && hasActiveFilters) {
@@ -899,6 +922,8 @@
       borderColor = "#c0392b";
     } else if (isConnected) {
       borderColor = "#0f766e";
+    } else if (isDualHubConnected) {
+      borderColor = "#ff8c00";
     } else if (isHubConnected) {
       borderColor = hubKind === "airport" ? "#6a00f4" : "#d90429";
     } else {
@@ -908,7 +933,7 @@
     let weight;
     if (isSelected) {
       weight = 3.2;
-    } else if (isConnected || isHubConnected) {
+    } else if (isConnected || isDualHubConnected || isHubConnected) {
       weight = 2.6;
     } else if (isMatch && hasActiveFilters) {
       weight = 2.2;
@@ -919,7 +944,7 @@
     let fillOpacity;
     if (isSelected) {
       fillOpacity = 0.84;
-    } else if (isHubConnected || (isMatch && hasActiveFilters)) {
+    } else if (isDualHubConnected || isHubConnected || (isMatch && hasActiveFilters)) {
       fillOpacity = 0.72;
     } else {
       fillOpacity = 0.52;
@@ -931,31 +956,33 @@
       fillColor,
       fillOpacity,
       opacity: 0.92,
-      dashArray: hasActiveFilters && !isMatch && !isHubConnected ? "3 5" : ""
+      dashArray: hasActiveFilters && !isMatch && !isHubConnected && !isDualHubConnected ? "3 5" : ""
     };
   }
 
   function renderAll() {
     bubbleStackRegistry = new Map();
     const matchSet = computeMatchingDistrictIds();
-    const hubConnected = state.activeSpecialHub ? computeSpecialHubConnectedDistricts(state.activeSpecialHub) : new Set();
-    renderDistrictStyles(matchSet, hubConnected);
+    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+    const hubConnected = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub) : new Set();
+    const dualHubConnected = computeDualHubConnectedDistricts();
+    renderDistrictStyles(matchSet, hubConnected, dualHubConnected);
     renderLabels(matchSet);
     renderCostIndicators(matchSet);
     renderCostBadges(matchSet);
     renderKeywords(matchSet);
     renderLandmarks(matchSet);
-    renderStations(matchSet);
-    renderConnectionLines(matchSet, hubConnected);
+    renderStations(matchSet, dualHubConnected);
+    renderConnectionLines(matchSet, hubConnected, dualHubConnected);
     renderSelectedDistrictInfo();
     renderLegend();
     renderUrlOnly();
   }
 
-  function renderDistrictStyles(matchSet, hubConnected) {
+  function renderDistrictStyles(matchSet, hubConnected, dualHubConnected) {
     districtLayer.eachLayer((layer) => {
       const districtId = layer.feature.properties._districtId;
-      layer.setStyle(districtStyleById(districtId, matchSet, hubConnected));
+      layer.setStyle(districtStyleById(districtId, matchSet, hubConnected, dualHubConnected));
     });
   }
 
@@ -1192,11 +1219,13 @@
     return amount.toLocaleString("en-US");
   }
 
-  function renderStations(matchSet) {
+  function renderStations(matchSet, dualHubConnected) {
     stationLayer.clearLayers();
     if (!state.showStations) {
       return;
     }
+
+    const dualSelectedSet = new Set(state.dualHubSelections.map((s) => s.id));
 
     stations.forEach((station) => {
       if (!isDistrictVisible(station.districtId, matchSet)) {
@@ -1205,26 +1234,48 @@
 
       const linesText = station.lines.length ? ` (${station.lines.join(", ")})` : "";
       const tooltipContent = `${escapeHtml(station.name)}${escapeHtml(linesText)}`;
+      const isDualSelected = dualSelectedSet.has(station.id);
 
       if (station.specialKind === "hbf") {
+        const hbfClass = isDualSelected ? "station-icon station-hbf dual-selected" : "station-icon station-hbf";
         const marker = L.marker([station.lat, station.lng], {
           keyboard: false,
           interactive: true,
           icon: L.divIcon({
-            className: "station-icon station-hbf",
+            className: hbfClass,
             html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#d90429" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="20" r="1.5" fill="#d90429" stroke="none"/><circle cx="16" cy="20" r="1.5" fill="#d90429" stroke="none"/><path d="M8 17l-2 3"/><path d="M16 17l2 3"/></svg>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           })
         });
 
-        marker.on("click", () => {
+        marker.on("click", (event) => {
+          const shiftPressed = shiftKeyHeld || (event.originalEvent && event.originalEvent.shiftKey);
+          if (shiftPressed) {
+            if (state.activeSpecialHub && state.activeSpecialHub.id === station.id) {
+              state.activeSpecialHub = null;
+            } else if (state.activeSpecialHub && state.activeSpecialHub.id !== station.id) {
+              state.dualHubSelections = [state.activeSpecialHub, station];
+              state.activeSpecialHub = null;
+            } else {
+              const idx = state.dualHubSelections.findIndex((s) => s.id === station.id);
+              if (idx !== -1) {
+                state.dualHubSelections.splice(idx, 1);
+              } else if (state.dualHubSelections.length < 2) {
+                state.dualHubSelections.push(station);
+              }
+            }
+            state.selectedDistrictId = null;
+            renderAll();
+            return;
+          }
           if (state.activeSpecialHub && state.activeSpecialHub.id === station.id) {
             state.activeSpecialHub = null;
           } else {
             state.activeSpecialHub = station;
             state.selectedDistrictId = null;
           }
+          state.dualHubSelections = [];
           renderAll();
         });
 
@@ -1238,24 +1289,45 @@
       }
 
       if (station.specialKind === "airport") {
+        const airportClass = isDualSelected ? "station-icon station-airport dual-selected" : "station-icon station-airport";
         const marker = L.marker([station.lat, station.lng], {
           keyboard: false,
           interactive: true,
           icon: L.divIcon({
-            className: "station-icon station-airport",
+            className: airportClass,
             html: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#6a00f4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>',
             iconSize: [22, 22],
             iconAnchor: [11, 11]
           })
         });
 
-        marker.on("click", () => {
+        marker.on("click", (event) => {
+          const shiftPressed = shiftKeyHeld || (event.originalEvent && event.originalEvent.shiftKey);
+          if (shiftPressed) {
+            if (state.activeSpecialHub && state.activeSpecialHub.id === station.id) {
+              state.activeSpecialHub = null;
+            } else if (state.activeSpecialHub && state.activeSpecialHub.id !== station.id) {
+              state.dualHubSelections = [state.activeSpecialHub, station];
+              state.activeSpecialHub = null;
+            } else {
+              const idx = state.dualHubSelections.findIndex((s) => s.id === station.id);
+              if (idx !== -1) {
+                state.dualHubSelections.splice(idx, 1);
+              } else if (state.dualHubSelections.length < 2) {
+                state.dualHubSelections.push(station);
+              }
+            }
+            state.selectedDistrictId = null;
+            renderAll();
+            return;
+          }
           if (state.activeSpecialHub && state.activeSpecialHub.id === station.id) {
             state.activeSpecialHub = null;
           } else {
             state.activeSpecialHub = station;
             state.selectedDistrictId = null;
           }
+          state.dualHubSelections = [];
           renderAll();
         });
 
@@ -1279,6 +1351,8 @@
       });
 
         marker.on("click", () => {
+          state.activeSpecialHub = null;
+          state.dualHubSelections = [];
           state.selectedDistrictId = station.districtId;
           renderAll();
         });
@@ -1292,7 +1366,7 @@
     });
   }
 
-  function renderConnectionLines(matchSet, hubConnected) {
+  function renderConnectionLines(matchSet, hubConnected, dualHubConnected) {
     connectionLineLayer.clearLayers();
     if (!state.showDirectConnections) {
       return;
@@ -1343,8 +1417,11 @@
       renderSpecialHubConnections(selectedDistrict, selectedCenter);
     }
 
-    if (state.activeSpecialHub) {
-      const hub = state.activeSpecialHub;
+    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+    const isDualHubMode = state.dualHubSelections.length === 2;
+
+    if (effectiveHub && !isDualHubMode) {
+      const hub = effectiveHub;
       const hubColor = hub.specialKind === "airport" ? "#6a00f4" : "#d90429";
       const hubDashArray = hub.specialKind === "airport" ? "2 8" : "12 6";
 
@@ -1375,6 +1452,42 @@
         );
 
         connectionLineLayer.addLayer(line);
+      });
+    }
+
+    if (state.dualHubSelections.length === 2 && dualHubConnected.size) {
+      state.dualHubSelections.forEach((hub) => {
+        const hubColor = hub.specialKind === "airport" ? "#6a00f4" : "#d90429";
+        const hubDashArray = hub.specialKind === "airport" ? "2 8" : "12 6";
+
+        dualHubConnected.forEach((districtId) => {
+          const district = districtById.get(districtId);
+          if (!district || !isDistrictVisible(districtId, matchSet)) {
+            return;
+          }
+
+          const center = district.properties._centroid;
+          const line = L.polyline(
+            [
+              [Number(hub.lat), Number(hub.lng)],
+              [center.lat, center.lng]
+            ],
+            {
+              renderer: canvasRenderer,
+              color: hubColor,
+              weight: 2.9,
+              opacity: 0.96,
+              dashArray: hubDashArray
+            }
+          );
+
+          line.bindTooltip(
+            `${escapeHtml(hub.name)} → ${districtId}. ${escapeHtml(district.properties.name)}`,
+            { direction: "center" }
+          );
+
+          connectionLineLayer.addLayer(line);
+        });
       });
     }
   }
@@ -1437,6 +1550,52 @@
   }
 
   function renderSelectedDistrictInfo() {
+    if (state.dualHubSelections.length === 2) {
+      const dualConnected = computeDualHubConnectedDistricts();
+      const connectedList = Array.from(dualConnected)
+        .sort((a, b) => a - b)
+        .map((id) => {
+          const d = districtById.get(id);
+          return d ? `<li>${id}. ${escapeHtml(d.properties.name)}</li>` : "";
+        })
+        .join("");
+
+      const hubName0 = state.dualHubSelections[0].name;
+      const hubName1 = state.dualHubSelections[1].name;
+
+      ui.districtInfo.innerHTML = `
+        <h3>Dual Hub: ${escapeHtml(hubName0)} + ${escapeHtml(hubName1)}</h3>
+        <p class="muted">Shift+click to find districts directly connected to both hubs</p>
+        <p><strong>${dualConnected.size}</strong> district${dualConnected.size !== 1 ? "s" : ""} with direct connections to both</p>
+        <ul>${connectedList || "<li>None</li>"}</ul>
+        <p class="muted" style="margin-top:8px">Shift+click a hub to remove it, or press Escape to deselect.</p>
+      `;
+      return;
+    }
+
+    if (state.dualHubSelections.length === 1) {
+      const hub = state.dualHubSelections[0];
+      const hubConnected = computeSpecialHubConnectedDistricts(hub);
+      const connectedList = Array.from(hubConnected)
+        .sort((a, b) => a - b)
+        .map((id) => {
+          const d = districtById.get(id);
+          return d ? `<li>${id}. ${escapeHtml(d.properties.name)}</li>` : "";
+        })
+        .join("");
+
+      ui.districtInfo.innerHTML = `
+        <h3>${escapeHtml(hub.name)} <span style="color:#ff8c00">[Shift+click]</span></h3>
+        <p class="muted">${hub.specialKind === "airport" ? "Airport" : "Main railway station"}</p>
+        <p><strong>Lines:</strong> ${escapeHtml(hub.lines.join(", "))}</p>
+        <p class="muted">Shift+click another hub (airport or HBF) to see districts connected to <strong>both</strong>.</p>
+        <p><strong>Districts with direct transport lines</strong></p>
+        <ul>${connectedList || "<li>None</li>"}</ul>
+        <p class="muted" style="margin-top:8px">Shift+click this hub again to deselect, or press Escape.</p>
+      `;
+      return;
+    }
+
     if (state.activeSpecialHub) {
       const hub = state.activeSpecialHub;
       const hubConnected = computeSpecialHubConnectedDistricts(hub);
@@ -1538,7 +1697,9 @@
     const legendElement = ensureLegendElement();
     const activeFilters = doesStateHaveActiveFilters();
     const connectedCount = state.selectedDistrictId ? getConnectedDistrictIds(state.selectedDistrictId).size : 0;
-    const hubConnectedCount = state.activeSpecialHub ? computeSpecialHubConnectedDistricts(state.activeSpecialHub).size : 0;
+    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
+    const hubConnectedCount = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub).size : 0;
+    const dualHubConnectedCount = state.dualHubSelections.length === 2 ? computeDualHubConnectedDistricts().size : 0;
     const legendRows = [
       '<div><strong>Legend</strong></div>',
       '<div class="row"><span class="swatch" style="background:#ffba5a"></span> selected district</div>',
@@ -1552,13 +1713,21 @@
       });
     }
 
+    if (state.dualHubSelections.length === 2) {
+      legendRows.push(
+        '<div class="row"><span class="swatch" style="background:#fff3cd"></span> connected to both hubs</div>',
+        `<div class="row muted">Districts connected to both hubs: <span class="mono">${dualHubConnectedCount}</span></div>`
+      );
+    }
+
     legendRows.push(
       `<div class="row muted">Connections highlighted: <span class="mono">${connectedCount}</span></div>` +
-        (state.activeSpecialHub
+        (effectiveHub
           ? ` | Hub-connected districts: <span class="mono">${hubConnectedCount}</span>`
           : ""),
       '<div class="row"><span class="swatch" style="background:#d90429"></span> direct to HBF</div>',
       '<div class="row"><span class="swatch" style="background:#6a00f4"></span> direct to airport</div>',
+      '<div class="row muted">Shift+click airport &amp; HBF to find districts connected to both</div>',
       `<div class="row muted">Filters active: <span class="mono">${activeFilters ? "yes" : "no"}</span></div>`
     );
 
