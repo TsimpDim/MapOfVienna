@@ -3,6 +3,7 @@
 
   const TOGGLE_DEFS = [
     { key: "showDistrictColors", label: "District colors", default: true, group: "Map essentials" },
+    { key: "showDistrictFill", label: "District fill", default: true, group: "Map essentials" },
     { key: "showDistrictLabels", label: "District names", default: true, group: "Map essentials" },
     { key: "showDistrictNumbers", label: "District numbers", default: true, group: "Map essentials" },
     { key: "showCostIndicators", label: "Cost at a glance", default: true, group: "District story" },
@@ -10,7 +11,10 @@
     { key: "showLandmarks", label: "Landmarks", default: false, group: "District story" },
     { key: "showCost", label: "Cost notes", default: false, group: "District story" },
     { key: "showStations", label: "Major stations", default: true, group: "Transport" },
-    { key: "showDirectConnections", label: "Direct connections", default: true, group: "Transport" }
+    { key: "showDirectConnections", label: "Direct connections", default: true, group: "Transport" },
+    { key: "showUbahn", label: "U-Bahn lines", default: false, group: "Transit lines" },
+    { key: "showSbahn", label: "S-Bahn lines", default: false, group: "Transit lines" },
+    { key: "showTram", label: "Tram lines", default: false, group: "Transit lines" }
   ];
 
   const BASE_VIEW = { lat: 48.2082, lng: 16.3738, zoom: 11 };
@@ -44,6 +48,7 @@
   const urlKeys = {
     selectedDistrictId: "sd",
     showDistrictColors: "dc",
+    showDistrictFill: "df",
     showDistrictLabels: "dl",
     showDistrictNumbers: "dn",
     showKeywords: "kwv",
@@ -52,6 +57,9 @@
     showCost: "csv",
     showStations: "stv",
     showDirectConnections: "cnv",
+    showUbahn: "ubv",
+    showSbahn: "sbv",
+    showTram: "trv",
     searchText: "q",
     selectedCostTiers: "ct",
     connectedToDistrictId: "cd",
@@ -76,6 +84,9 @@
   let costLayer;
   let stationLayer;
   let connectionLineLayer;
+  let ubahnLayer;
+  let sbahnLayer;
+  let tramLayer;
   let bubbleStackRegistry = new Map();
 
   const ui = {};
@@ -89,6 +100,7 @@
     activeSpecialHub: null,
     dualHubSelections: [],
     showDistrictColors: true,
+    showDistrictFill: true,
     showDistrictLabels: true,
     showDistrictNumbers: true,
     showKeywords: false,
@@ -97,6 +109,9 @@
     showCost: false,
     showStations: true,
     showDirectConnections: true,
+    showUbahn: false,
+    showSbahn: false,
+    showTram: false,
     searchText: "",
     selectedCostTiers: new Set(),
     connectedToDistrictId: null,
@@ -622,7 +637,14 @@
   }
 
   function cacheUi() {
-    ui.toggleControls = document.getElementById("toggleControls");
+    ui.layersPanelBody = document.getElementById("layersPanelBody");
+    ui.layersToggleBtn = document.getElementById("layersToggleBtn");
+    ui.legendPanelBody = document.getElementById("legendPanelBody");
+    ui.legendToggleBtn = document.getElementById("legendToggleBtn");
+    ui.panelCollapseBtn = document.getElementById("panelCollapseBtn");
+    ui.panelCollapseIcon = ui.panelCollapseBtn ? ui.panelCollapseBtn.querySelector(".panel-collapse-icon") : null;
+    ui.panelCollapseLabel = ui.panelCollapseBtn ? ui.panelCollapseBtn.querySelector(".panel-collapse-label") : null;
+    ui.panel = document.querySelector(".panel");
     ui.costTierFilters = document.getElementById("costTierFilters");
 
     ui.districtSearch = document.getElementById("districtSearch");
@@ -633,7 +655,6 @@
     ui.resetMapBtn = document.getElementById("resetMapBtn");
     ui.districtInfo = document.getElementById("districtInfo");
     ui.comparisonInfo = document.getElementById("comparisonInfo");
-    ui.legend = document.getElementById("legend");
     ui.mapStatus = document.getElementById("mapStatus");
     ui.mapEmpty = document.getElementById("mapEmpty");
     ui.mapEmptyClearBtn = document.getElementById("mapEmptyClearBtn");
@@ -642,7 +663,8 @@
   }
 
   function buildToggleControls() {
-    ui.toggleControls.innerHTML = "";
+    if (!ui.layersPanelBody) { return; }
+    ui.layersPanelBody.innerHTML = "";
     const groups = new Map();
     TOGGLE_DEFS.forEach((toggleDef) => {
       if (!groups.has(toggleDef.group)) {
@@ -673,7 +695,7 @@
       });
 
       fieldset.append(legend, list);
-      ui.toggleControls.appendChild(fieldset);
+      ui.layersPanelBody.appendChild(fieldset);
     });
   }
 
@@ -741,7 +763,7 @@
   }
 
   function bindUiEvents() {
-    ui.toggleControls.addEventListener("change", (event) => {
+    ui.layersPanelBody.addEventListener("change", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") {
         return;
@@ -839,6 +861,28 @@
     });
 
     ui.retryLoadBtn.addEventListener("click", () => window.location.reload());
+
+    ui.layersToggleBtn.addEventListener("click", () => toggleRightPanel("layers"));
+    ui.legendToggleBtn.addEventListener("click", () => toggleRightPanel("legend"));
+    ui.panelCollapseBtn.addEventListener("click", toggleSidebarPanel);
+  }
+
+  function toggleRightPanel(panel) {
+    const toggleBtn = panel === "layers" ? ui.layersToggleBtn : ui.legendToggleBtn;
+    const body = panel === "layers" ? ui.layersPanelBody : ui.legendPanelBody;
+    const isOpen = !body.hidden;
+    body.hidden = isOpen;
+    toggleBtn.setAttribute("aria-expanded", String(!isOpen));
+  }
+
+  function toggleSidebarPanel() {
+    if (!ui.panel) { return; }
+    var isCollapsed = ui.panel.classList.toggle("collapsed");
+    if (ui.panelCollapseBtn) {
+      ui.panelCollapseBtn.classList.toggle("active", isCollapsed);
+    }
+    ui.panelCollapseBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+    ui.panelCollapseBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
   }
 
   function toggleSetValue(set, value) {
@@ -914,6 +958,9 @@
     costLayer = L.layerGroup().addTo(map);
     stationLayer = L.layerGroup().addTo(map);
     connectionLineLayer = L.layerGroup().addTo(map);
+    ubahnLayer = L.layerGroup().addTo(map);
+    sbahnLayer = L.layerGroup().addTo(map);
+    tramLayer = L.layerGroup().addTo(map);
 
     const mapView = state.mapView;
     if (mapView) {
@@ -1107,17 +1154,21 @@
 
     let fillOpacity;
     if (isSelected) {
-      fillOpacity = 0.98;
+      fillOpacity = 0.85;
     } else if (isHovered) {
-      fillOpacity = 1;
+      fillOpacity = 0.80;
     } else if (hasActiveFilters && !isMatch) {
       fillOpacity = 0.45;
     } else if (isBackground) {
       fillOpacity = 0.45;
     } else if (isDualHubConnected || isHubConnected || (isMatch && hasActiveFilters)) {
-      fillOpacity = 0.94;
+      fillOpacity = 0.78;
     } else {
-      fillOpacity = 0.55;
+      fillOpacity = 0.50;
+    }
+
+    if (!state.showDistrictFill) {
+      fillOpacity = 0;
     }
 
     return {
@@ -1144,6 +1195,9 @@
     renderLandmarks(matchSet);
     renderStations(matchSet, dualHubConnected);
     renderConnectionLines(matchSet, hubConnected, dualHubConnected);
+    renderUbahnLines();
+    renderSbahnLines();
+    renderTramLines();
     renderComparisonInfo();
     renderSelectedDistrictInfo();
     renderLegend();
@@ -1707,6 +1761,119 @@
       });
   }
 
+  function renderUbahnLines() {
+    ubahnLayer.clearLayers();
+    if (!state.showUbahn) {
+      return;
+    }
+
+    Object.keys(LINE_ROUTES).forEach((lineName) => {
+      const style = LINE_STYLES[lineName];
+      if (!style || style.mode !== "ubahn") {
+        return;
+      }
+
+      const coords = LINE_ROUTES[lineName];
+      if (!coords || coords.length < 2) {
+        return;
+      }
+
+      const polyline = L.polyline(coords, {
+        renderer: canvasRenderer,
+        color: style.color,
+        weight: 4.5,
+        opacity: 0.92,
+        dashArray: ""
+      });
+
+      polyline.bindTooltip(`<strong>${escapeHtml(lineName)}</strong>`, {
+        className: "line-tooltip",
+        direction: "top",
+        sticky: true,
+        offset: [0, -10]
+      });
+
+      ubahnLayer.addLayer(polyline);
+    });
+  }
+
+  function renderSbahnLines() {
+    sbahnLayer.clearLayers();
+    if (!state.showSbahn) {
+      return;
+    }
+
+    const displayLines = Object.keys(LINE_ROUTES).filter((name) => {
+      const style = LINE_STYLES[name];
+      return style && style.mode === "sbahn";
+    });
+
+    const sbahnOffset = 0.00035;
+    const orderedLines = displayLines.sort();
+    const half = (orderedLines.length - 1) / 2;
+
+    orderedLines.forEach((lineName, index) => {
+      const coords = LINE_ROUTES[lineName];
+      if (!coords || coords.length < 2) {
+        return;
+      }
+
+      const style = LINE_STYLES[lineName];
+      const offsetLat = (index - half) * sbahnOffset;
+
+      const offsetCoords = coords.map(function (pt) {
+        return [pt[0] + offsetLat, pt[1]];
+      });
+
+      const polyline = L.polyline(offsetCoords, {
+        renderer: canvasRenderer,
+        color: style.color,
+        weight: 3,
+        opacity: 0.88,
+        dashArray: ""
+      });
+
+      polyline.bindTooltip(`<strong>${escapeHtml(lineName)}</strong>`, {
+        className: "line-tooltip",
+        direction: "top",
+        sticky: true,
+        offset: [0, -10]
+      });
+
+      sbahnLayer.addLayer(polyline);
+    });
+  }
+
+  function renderTramLines() {
+    tramLayer.clearLayers();
+    if (!state.showTram) {
+      return;
+    }
+
+    TRAM_CORRIDORS.forEach(function (corridor) {
+      if (!corridor.coords || corridor.coords.length < 2) {
+        return;
+      }
+
+      const polyline = L.polyline(corridor.coords, {
+        renderer: canvasRenderer,
+        color: corridor.color,
+        weight: 3,
+        opacity: 0.88,
+        dashArray: ""
+      });
+
+      polyline.bindTooltip(`<strong>Tram ${escapeHtml(corridor.label)}</strong>`, {
+        className: "line-tooltip",
+        direction: "top",
+        sticky: true,
+        offset: [0, -10]
+      });
+
+      tramLayer.addLayer(polyline);
+    });
+  }
+
   function collectDistrictLineTokens(transport) {
     const tokens = new Set();
     ["ubahn", "sbahn", "tram", "bus"].forEach((mode) => {
@@ -1784,7 +1951,7 @@
       return;
     }
 
-    setMapStatus("Click a painted district to inspect it. Ctrl/Cmd+click adds it to your desk.");
+    setMapStatus("");
   }
 
   function setMapStatus(message) {
@@ -1942,63 +2109,129 @@
   }
 
   function renderLegend() {
-    const legendElement = ensureLegendElement();
-    const activeFilters = doesStateHaveActiveFilters();
-    const connectedCount = state.selectedDistrictId ? getConnectedDistrictIds(state.selectedDistrictId).size : 0;
-    const effectiveHub = state.activeSpecialHub || (state.dualHubSelections.length === 1 ? state.dualHubSelections[0] : null);
-    const hubConnectedCount = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub).size : 0;
-    const dualHubConnectedCount = state.dualHubSelections.length === 2 ? computeDualHubConnectedDistricts().size : 0;
-    const legendRows = [];
+    if (!ui.legendPanelBody) { return; }
+    var rows = [];
 
-    if (state.dualHubSelections.length === 2) {
-      legendRows.push(
-        '<div><strong>Hub match</strong></div>',
-        '<div class="row"><span class="swatch" style="background:#f6df8a"></span> connected to both hubs</div>',
-        `<div class="row muted">Districts connected to both hubs: <span class="mono">${dualHubConnectedCount}</span></div>`
-      );
-    } else if (effectiveHub) {
-      legendRows.push(
-        '<div><strong>Hub connection</strong></div>',
-        `<div class="row muted"><span class="mono">${hubConnectedCount}</span> districts share a direct line</div>`
-      );
-    } else if (state.selectedDistrictId) {
-      legendRows.push(
-        '<div><strong>District selection</strong></div>',
-        '<div class="row"><span class="swatch" style="background:#f08b62"></span> selected district</div>',
-        `<div class="row"><span class="swatch" style="background:#94d3c0"></span> ${connectedCount} direct connections</div>`
-      );
-    } else if (activeFilters) {
-      legendRows.push(
-        '<div><strong>Filter result</strong></div>',
-        `<div class="row"><span class="swatch" style="background:#a8d9c3"></span> ${computeMatchingDistrictIds().size} matching districts</div>`
-      );
+    var anyFilter = doesStateHaveActiveFilters();
+    var matchSet = anyFilter ? computeMatchingDistrictIds() : null;
+
+    if (state.showDistrictColors) {
+      rows.push('<div class="legend-section-title">Districts</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#f3b59f"></span>colored by district</div>');
+      if (anyFilter) {
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#a8d9c3"></span>' + matchSet.size + ' matching districts</div>');
+        rows.push('<div class="legend-row"><span class="legend-dot" style="background:#d0cdc5;opacity:0.5"></span>non-matching (dimmed)</div>');
+      }
     }
 
-    legendElement.innerHTML = legendRows.join("");
+    if (state.selectedDistrictId) {
+      rows.push('<div class="legend-section-title">Selection</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#f08b62"></span>selected district</div>');
+      var compared = Array.from(state.comparisonDistrictIds).filter(function (id) { return id !== state.selectedDistrictId; });
+      if (compared.length) {
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#eca9bb"></span>' + compared.length + ' compared</div>');
+      }
+      if (state.showDirectConnections) {
+        var connCount = getConnectedDistrictIds(state.selectedDistrictId).size;
+        if (connCount) {
+          rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#94d3c0"></span>' + connCount + ' direct connections</div>');
+          rows.push('<div class="legend-row"><span class="legend-dash" style="background:#397b68"></span>connection line</div>');
+        }
+      }
+    }
+
+    if (state.showStations) {
+      rows.push('<div class="legend-section-title">Stations</div>');
+      rows.push('<div class="legend-row"><span class="legend-circle" style="background:#a8d2e8"></span>major station</div>');
+      rows.push('<div class="legend-row"><span class="legend-icon">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#a64e49" stroke-width="2"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="20" r="1.5" fill="#a64e49" stroke="none"/><circle cx="16" cy="20" r="1.5" fill="#a64e49" stroke="none"/><path d="M8 17l-2 3"/><path d="M16 17l2 3"/></svg>' +
+        '</span>Hauptbahnhof</div>');
+      rows.push('<div class="legend-row"><span class="legend-icon">' +
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#625785" stroke-width="2"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>' +
+        '</span>Airport</div>');
+    }
+
+    if (state.showCostIndicators) {
+      rows.push('<div class="legend-section-title">Cost at a Glance</div>');
+      rows.push('<div class="legend-row"><span class="legend-badge">€€€€</span>very expensive</div>');
+      rows.push('<div class="legend-row"><span class="legend-badge">€€€</span>expensive</div>');
+      rows.push('<div class="legend-row"><span class="legend-badge">€€</span>moderate</div>');
+      rows.push('<div class="legend-row"><span class="legend-badge">€</span>affordable</div>');
+    }
+
+    if (state.showCost) {
+      rows.push('<div class="legend-section-title">Cost Notes</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + COST_STYLE.very_expensive.color + '"></span>very expensive</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + COST_STYLE.expensive.color + '"></span>expensive</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + COST_STYLE.moderate.color + '"></span>moderate</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + COST_STYLE.affordable.color + '"></span>affordable</div>');
+    }
+
+    if (state.showKeywords) {
+      rows.push('<div class="legend-section-title">Vibe Keywords</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:var(--paper-bright);border-color:var(--outline)"></span>keyword badge</div>');
+    }
+
+    if (state.showLandmarks) {
+      rows.push('<div class="legend-section-title">Landmarks</div>');
+      rows.push('<div class="legend-row"><span class="legend-circle" style="background:#f6df8a"></span>landmark</div>');
+    }
+
+    if (state.showDistrictLabels || state.showDistrictNumbers) {
+      rows.push('<div class="legend-section-title">Labels</div>');
+      if (state.showDistrictLabels && state.showDistrictNumbers) {
+        rows.push('<div class="legend-row"><span class="legend-text">7. Neubau</span>name + number</div>');
+      } else if (state.showDistrictLabels) {
+        rows.push('<div class="legend-row"><span class="legend-text">Neubau</span>district name</div>');
+      } else {
+        rows.push('<div class="legend-row"><span class="legend-text">7</span>district number</div>');
+      }
+    }
+
+    if (state.showUbahn) {
+      rows.push('<div class="legend-section-title">U-Bahn Lines</div>');
+      Object.keys(LINE_ROUTES).forEach(function (name) {
+        var style = LINE_STYLES[name];
+        if (style && style.mode === "ubahn") {
+          rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + style.color + '"></span>' + escapeHtml(name) + '</div>');
+        }
+      });
+    }
+
+    if (state.showSbahn) {
+      rows.push('<div class="legend-section-title">S-Bahn Lines</div>');
+      Object.keys(LINE_ROUTES).forEach(function (name) {
+        var style = LINE_STYLES[name];
+        if (style && style.mode === "sbahn") {
+          rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + style.color + '"></span>' + escapeHtml(name) + '</div>');
+        }
+      });
+    }
+
+    if (state.showTram) {
+      rows.push('<div class="legend-section-title">Tram Lines</div>');
+      TRAM_CORRIDORS.forEach(function (corridor) {
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + corridor.color + '"></span>' + escapeHtml(corridor.label) + '</div>');
+      });
+    }
+
+    if (state.activeSpecialHub || state.dualHubSelections.length) {
+      rows.push('<div class="legend-section-title">Hub Connections</div>');
+      if (state.dualHubSelections.length === 2) {
+        var dualCount = computeDualHubConnectedDistricts().size;
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#f6df8a"></span>' + dualCount + ' dual-hub districts</div>');
+      } else {
+        var hub = state.activeSpecialHub || state.dualHubSelections[0];
+        var hubConnected = computeSpecialHubConnectedDistricts(hub).size;
+        var hubColor = hub.specialKind === "airport" ? "#c5b8e7" : "#f3b59f";
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + hubColor + '"></span>' + hubConnected + ' connected districts</div>');
+        rows.push('<div class="legend-row"><span class="legend-dash" style="background:' + (hub.specialKind === "airport" ? "#625785" : "#a64e49") + '"></span>hub spoke line</div>');
+      }
+    }
+
+    ui.legendPanelBody.innerHTML = rows.length ? rows.join("") : '<div class="legend-row muted">Enable layers to see details</div>';
   }
-
-  function ensureLegendElement() {
-    if (ui.legend && ui.legend.isConnected) {
-      return ui.legend;
-    }
-
-    let legend = document.getElementById("legend");
-    if (!legend) {
-      legend = document.createElement("div");
-      legend.id = "legend";
-      legend.className = "legend";
-    }
-
-    const mapWrap = document.querySelector(".map-wrap");
-    if (mapWrap && !mapWrap.contains(legend)) {
-      mapWrap.appendChild(legend);
-    }
-
-    ui.legend = legend;
-    return legend;
-  }
-
-  function computeMatchingDistrictIds() {
+    function computeMatchingDistrictIds() {
     const matches = new Set();
 
     districts.forEach((feature) => {
