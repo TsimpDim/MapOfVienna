@@ -1123,6 +1123,12 @@
     state.dualHubSelections = [];
 
     if (!additiveSelection) {
+      if (state.selectedDistrictId === districtId) {
+        state.selectedDistrictId = null;
+        state.comparisonDistrictIds = new Set();
+        renderAll();
+        return;
+      }
       state.comparisonDistrictIds = new Set([districtId]);
       state.selectedDistrictId = districtId;
       renderAll();
