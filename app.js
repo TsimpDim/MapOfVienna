@@ -263,6 +263,7 @@
       buildFilterControls();
       buildToggleControls();
       bindUiEvents();
+      collapseSidebarByDefaultOnSmallScreens();
       initMap();
       renderAll();
       document.body.dataset.appState = "ready";
@@ -1000,14 +1001,25 @@
     toggleBtn.setAttribute("aria-expanded", String(!isOpen));
   }
 
-  function toggleSidebarPanel() {
+  function setSidebarCollapsed(isCollapsed) {
     if (!ui.panel) { return; }
-    var isCollapsed = ui.panel.classList.toggle("collapsed");
+    ui.panel.classList.toggle("collapsed", isCollapsed);
     if (ui.panelCollapseBtn) {
       ui.panelCollapseBtn.classList.toggle("active", isCollapsed);
+      ui.panelCollapseBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+      ui.panelCollapseBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
     }
-    ui.panelCollapseBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
-    ui.panelCollapseBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
+  }
+
+  function toggleSidebarPanel() {
+    if (!ui.panel) { return; }
+    setSidebarCollapsed(!ui.panel.classList.contains("collapsed"));
+  }
+
+  function collapseSidebarByDefaultOnSmallScreens() {
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      setSidebarCollapsed(true);
+    }
   }
 
   function toggleSetValue(set, value) {
