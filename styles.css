@@ -707,6 +707,10 @@ body[data-app-state="error"] .map-loading { display: none; }
   box-shadow: none;
   font-family: "Inter", Arial, sans-serif;
   font-size: 0.74rem;
+  width: max-content;
+  max-width: 360px;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 .station-tooltip:before { display: none; }
 .station-icon { display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; transition: transform 120ms ease-out; }
@@ -725,6 +729,95 @@ body[data-app-state="error"] .map-loading { display: none; }
   font-weight: 700;
 }
 .line-tooltip:before { display: none; }
+
+.safety-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.74rem;
+  width: max-content;
+  max-width: 440px;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.safety-tooltip:before { display: none; }
+.safety-tooltip-title {
+  margin-bottom: 4px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-weight: 700;
+}
+.safety-tooltip-level {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.safety-tooltip-text {
+  color: var(--ink-soft);
+  font-size: 0.71rem;
+  line-height: 1.4;
+}
+.safety-tooltip-district {
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+  font-style: italic;
+}
+
+.food-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.74rem;
+  width: max-content;
+  max-width: 400px;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.food-tooltip:before { display: none; }
+.food-tooltip-title {
+  margin-bottom: 4px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-weight: 700;
+}
+.food-tooltip-type {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.food-tooltip-text {
+  color: var(--ink-soft);
+  font-size: 0.71rem;
+  line-height: 1.4;
+}
+.food-tooltip-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.food-tooltip-tag {
+  padding: 1px 5px;
+  background: var(--paper-deep);
+  border: 1px solid var(--outline);
+  font-size: 0.64rem;
+  font-weight: 600;
+}
 
 @media (max-width: 900px) {
   .panel { width: 100vw; padding: 18px 14px 28px; border-right: 0; border-top: var(--line-strong); }

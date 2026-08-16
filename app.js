@@ -9,13 +9,15 @@
     { key: "showCostIndicators", label: "Cost at a glance", default: true, group: "District story" },
     { key: "showKeywords", label: "Vibe keywords", default: false, group: "District story" },
     { key: "showLandmarks", label: "Landmarks", default: false, group: "District story" },
+    { key: "showFood", label: "Cafés & restaurants", default: false, group: "District story" },
     { key: "showCost", label: "Cost notes", default: false, group: "District story" },
     { key: "showStations", label: "Major stations", default: true, group: "Transport" },
     { key: "showDirectConnections", label: "Direct connections", default: true, group: "Transport" },
     { key: "showUbahn", label: "U-Bahn lines", default: false, group: "Transit lines" },
     { key: "showSbahn", label: "S-Bahn lines", default: false, group: "Transit lines" },
     { key: "showTram", label: "Tram lines", default: false, group: "Transit lines" },
-    { key: "showMainRoads", label: "Main roads", default: false, group: "Roads" }
+    { key: "showMainRoads", label: "Main roads", default: false, group: "Roads" },
+    { key: "showSafety", label: "Safety areas", default: false, group: "Safety" }
   ];
 
   const BASE_VIEW = { lat: 48.2082, lng: 16.3738, zoom: 11 };
@@ -27,6 +29,119 @@
     expensive: { label: "Expensive", color: "#f3b59f" },
     moderate: { label: "Moderate", color: "#f6df8a" },
     affordable: { label: "Affordable", color: "#a8d9c3" }
+  };
+  const SAFETY_LEVELS = {
+    safe: { label: "Low crime", color: "#8ccf9b" },
+    moderate: { label: "Average crime", color: "#f6df8a" },
+    elevated: { label: "Higher crime", color: "#e0857c" }
+  };
+  const SAFETY_DATA = {
+    1: { level: "elevated", text: "Pickpocketing and tourist-targeted petty crime around Stephansplatz and the old town, but violent crime is rare." },
+    2: { level: "moderate", text: "Mostly relaxed; keep an eye on belongings around Praterstern station and crowded Prater areas." },
+    3: { level: "moderate", text: "Occasional petty crime near Wien Mitte and busy shopping streets; residential parts are quiet." },
+    4: { level: "moderate", text: "Fairly calm; pickpockets mostly work around Karlsplatz and the busy U1 corridor." },
+    5: { level: "elevated", text: "Above-average property crime, especially along busy streets and nightlife spots; improving as the area gentrifies." },
+    6: { level: "moderate", text: "Shopping crowds on Mariahilfer Straße attract pickpockets; nightlife corners stay lively late." },
+    7: { level: "moderate", text: "Average crime; late-night bar streets see occasional petty incidents." },
+    8: { level: "safe", text: "One of Vienna's calmest districts; crime is rare and mostly limited to bicycle theft." },
+    9: { level: "safe", text: "Low crime in this student and university area; occasional bike theft only." },
+    10: { level: "elevated", text: "Higher property crime, focused around Reumannplatz and train stations; daytime is generally fine." },
+    11: { level: "elevated", text: "Property crime clusters near U3 stations; quiet residential streets are much calmer." },
+    12: { level: "moderate", text: "Average crime with some incidents around Meidling station; side streets stay peaceful." },
+    13: { level: "safe", text: "Very low crime; the villa neighborhoods are among the safest in the city." },
+    14: { level: "moderate", text: "Low-to-average crime in mostly calm residential areas." },
+    15: { level: "elevated", text: "Among Vienna's higher-crime districts; busy squares, Westbahnhof and nightlife areas see most incidents." },
+    16: { level: "elevated", text: "Above-average petty and property crime around Brunnenmarkt and Yppenplatz; fine during the day." },
+    17: { level: "moderate", text: "Average crime; suburban calm with occasional petty incidents near stations." },
+    18: { level: "safe", text: "Very low crime in quiet, green residential streets." },
+    19: { level: "safe", text: "Among Vienna's safest; wealthy residential hills with minimal incidents." },
+    20: { level: "elevated", text: "Elevated property crime near Millennium City and Handelskai; daytime is generally safe." },
+    21: { level: "moderate", text: "Average crime, concentrated around Floridsdorf station; otherwise suburban." },
+    22: { level: "moderate", text: "Large and mostly suburban; incidents cluster near malls and transport hubs." },
+    23: { level: "safe", text: "Very low crime in the calm southern suburbs." }
+  };
+  const SAFETY_SPOTS = [
+    { name: "Stephansplatz & Graben", districtId: 1, lat: 48.2085, lng: 16.3725, radius: 750, level: "elevated", text: "Tourist crowds and shopping lanes draw pickpockets; violent crime stays rare." },
+    { name: "Hofburg & Heldenplatz", districtId: 1, lat: 48.2067, lng: 16.3657, radius: 700, level: "moderate", text: "Busy sightseeing area; petty theft around queues and photo spots." },
+    { name: "Rathaus quarter", districtId: 1, lat: 48.2105, lng: 16.3574, radius: 600, level: "safe", text: "Government and festival grounds; generally calm even during events." },
+    { name: "Praterstern", districtId: 2, lat: 48.2197, lng: 16.3923, radius: 800, level: "elevated", text: "The station surroundings see most of the district's property crime." },
+    { name: "Prater park", districtId: 2, lat: 48.2060, lng: 16.4100, radius: 1000, level: "moderate", text: "Crowded amusement areas attract pickpockets; keep bags closed." },
+    { name: "Augarten", districtId: 2, lat: 48.2263, lng: 16.3772, radius: 700, level: "safe", text: "Quiet park and residential streets; low crime." },
+    { name: "Wien Mitte", districtId: 3, lat: 48.2062, lng: 16.3841, radius: 700, level: "elevated", text: "Station and mall crowds see pickpocketing and bicycle theft." },
+    { name: "Belvedere", districtId: 3, lat: 48.1915, lng: 16.3808, radius: 800, level: "safe", text: "Embassy and palace quarter; among the calmest corners of the district." },
+    { name: "Karlsplatz", districtId: 4, lat: 48.2003, lng: 16.3698, radius: 700, level: "elevated", text: "Busy transit and student hub; keep valuables close after dark." },
+    { name: "Freihausviertel", districtId: 4, lat: 48.1930, lng: 16.3620, radius: 600, level: "safe", text: "Student lanes near the Naschmarkt; calm and social." },
+    { name: "Reinprechtsdorfer Straße", districtId: 5, lat: 48.1850, lng: 16.3540, radius: 700, level: "elevated", text: "Lively thoroughfare with above-average property crime at night." },
+    { name: "Margaretenplatz", districtId: 5, lat: 48.1917, lng: 16.3575, radius: 600, level: "moderate", text: "Quieter than the main roads; normal caution at night." },
+    { name: "Mariahilfer Straße", districtId: 6, lat: 48.1985, lng: 16.3510, radius: 800, level: "elevated", text: "Vienna's shopping mile attracts pickpockets year-round." },
+    { name: "Naschmarkt", districtId: 6, lat: 48.1981, lng: 16.3601, radius: 700, level: "moderate", text: "Lively market crowds; watch wallets while browsing." },
+    { name: "MuseumsQuartier", districtId: 7, lat: 48.2033, lng: 16.3581, radius: 700, level: "moderate", text: "Late-night bar crowds bring occasional scuffles and thefts." },
+    { name: "Spittelberg", districtId: 7, lat: 48.2028, lng: 16.3547, radius: 500, level: "safe", text: "Small, well-kept lanes; low crime." },
+    { name: "Theater district", districtId: 8, lat: 48.2096, lng: 16.3492, radius: 600, level: "safe", text: "Vienna's smallest district is consistently calm." },
+    { name: "Franz-Josefs-Bahnhof", districtId: 9, lat: 48.2261, lng: 16.3603, radius: 600, level: "moderate", text: "Station area sees occasional petty crime." },
+    { name: "University quarter", districtId: 9, lat: 48.2135, lng: 16.3580, radius: 600, level: "safe", text: "Student neighborhood; mostly bicycle theft." },
+    { name: "Reumannplatz", districtId: 10, lat: 48.1745, lng: 16.3783, radius: 800, level: "elevated", text: "The south's busiest square; property crime concentrates here." },
+    { name: "Hauptbahnhof", districtId: 10, lat: 48.1851, lng: 16.3732, radius: 800, level: "elevated", text: "Large station crowds; pickpocketing around entrances." },
+    { name: "Oberlaa", districtId: 10, lat: 48.1404, lng: 16.4025, radius: 900, level: "safe", text: "Green southern suburb; calm and residential." },
+    { name: "Simmering station", districtId: 11, lat: 48.1705, lng: 16.4208, radius: 800, level: "elevated", text: "The U3 corridor has the district's highest incident rate." },
+    { name: "Zentralfriedhof", districtId: 11, lat: 48.1517, lng: 16.4402, radius: 900, level: "safe", text: "Cemetery and green surroundings; very quiet." },
+    { name: "Bahnhof Meidling", districtId: 12, lat: 48.1743, lng: 16.3339, radius: 700, level: "elevated", text: "Busy interchange; watch luggage and pockets." },
+    { name: "Meidlinger Markt", districtId: 12, lat: 48.1786, lng: 16.3323, radius: 600, level: "moderate", text: "Market days bring crowds; normal caution." },
+    { name: "Hetzendorf", districtId: 12, lat: 48.1672, lng: 16.3089, radius: 800, level: "safe", text: "Residential villas; low crime." },
+    { name: "Schönbrunn", districtId: 13, lat: 48.1848, lng: 16.3122, radius: 1000, level: "safe", text: "Palace grounds and villas; among the city's safest." },
+    { name: "Hietzing village", districtId: 13, lat: 48.1883, lng: 16.3039, radius: 800, level: "safe", text: "Calm, wealthy neighborhood." },
+    { name: "Hütteldorf", districtId: 14, lat: 48.1980, lng: 16.2580, radius: 700, level: "moderate", text: "Station and shopping center; occasional petty crime." },
+    { name: "Auhof", districtId: 14, lat: 48.2100, lng: 16.2300, radius: 900, level: "safe", text: "Suburban calm toward the Wienerwald." },
+    { name: "Westbahnhof & Gürtel", districtId: 15, lat: 48.1967, lng: 16.3392, radius: 800, level: "elevated", text: "Nightlife and station crowds; most incidents happen here." },
+    { name: "Stadthalle", districtId: 15, lat: 48.2020, lng: 16.3340, radius: 700, level: "moderate", text: "Event crowds attract pickpockets during concerts." },
+    { name: "Schmelz", districtId: 15, lat: 48.1950, lng: 16.3150, radius: 700, level: "moderate", text: "Calmer residential west; normal caution." },
+    { name: "Brunnenmarkt & Yppenplatz", districtId: 16, lat: 48.2140, lng: 16.3360, radius: 800, level: "elevated", text: "Market and nightlife streets see the district's most crime." },
+    { name: "Ottakring station", districtId: 16, lat: 48.2110, lng: 16.3110, radius: 600, level: "moderate", text: "Transit area; occasional petty theft." },
+    { name: "Wilhelminenberg", districtId: 16, lat: 48.2260, lng: 16.2800, radius: 900, level: "safe", text: "Hilly residential area; very calm." },
+    { name: "Hernals station", districtId: 17, lat: 48.2230, lng: 16.3180, radius: 700, level: "moderate", text: "Station surroundings see most local incidents." },
+    { name: "Dornbach", districtId: 17, lat: 48.2300, lng: 16.2920, radius: 800, level: "safe", text: "Suburban greenery; low crime." },
+    { name: "Volksoper quarter", districtId: 18, lat: 48.2240, lng: 16.3489, radius: 700, level: "safe", text: "Residential shopping street; low crime." },
+    { name: "Gersthof", districtId: 18, lat: 48.2340, lng: 16.3310, radius: 700, level: "safe", text: "Quiet residential streets." },
+    { name: "Heiligenstadt", districtId: 19, lat: 48.2530, lng: 16.3650, radius: 700, level: "moderate", text: "Transit hub at the district edge; normal caution." },
+    { name: "Kahlenberg hills", districtId: 19, lat: 48.2760, lng: 16.3330, radius: 1200, level: "safe", text: "Vineyards and villas; minimal incidents." },
+    { name: "Millennium City", districtId: 20, lat: 48.2410, lng: 16.3860, radius: 800, level: "elevated", text: "Mall and riverside station; property crime above average." },
+    { name: "Wallensteinplatz", districtId: 20, lat: 48.2310, lng: 16.3710, radius: 700, level: "moderate", text: "Neighborhood square; average crime." },
+    { name: "Floridsdorf station", districtId: 21, lat: 48.2570, lng: 16.4010, radius: 800, level: "elevated", text: "Busy northern hub; watch valuables." },
+    { name: "Alte Donau", districtId: 21, lat: 48.2320, lng: 16.4180, radius: 900, level: "safe", text: "Recreation lakes; calm family areas." },
+    { name: "Donauzentrum", districtId: 22, lat: 48.2440, lng: 16.4270, radius: 800, level: "moderate", text: "Large mall crowds; occasional pickpocketing." },
+    { name: "Seestadt", districtId: 22, lat: 48.2250, lng: 16.4960, radius: 900, level: "safe", text: "New residential development; very calm." },
+    { name: "Alterlaa", districtId: 23, lat: 48.1480, lng: 16.3180, radius: 700, level: "moderate", text: "High-rise complex; average property crime." },
+    { name: "Mauer", districtId: 23, lat: 48.1470, lng: 16.2650, radius: 800, level: "safe", text: "Villa suburb; among the safest." }
+  ];
+  const FOOD_DENSITY = {
+    high: { label: "Café-rich", color: "#d9a679" },
+    medium: { label: "Some cafés", color: "#e8d3a3" },
+    low: { label: "Few cafés", color: "#efe3c6" }
+  };
+  const FOOD_SCENE = {
+    1: { cafeDensity: "high", cuisines: ["grand coffee houses", "fine dining", "tourist classics"], text: "Vienna’s café capital: grand coffee houses and upscale restaurants, pricey and tourist-oriented." },
+    2: { cafeDensity: "medium", cuisines: ["Prater beer gardens", "family bistros", "Japanese & Asian"], text: "Casual bistros, Prater classics and a strong Japanese dining scene around Mochi." },
+    3: { cafeDensity: "medium", cuisines: ["fine dining", "market kitchens", "wine bars"], text: "From Steirereck fine dining to Rochusmarkt kitchens and evening wine bars." },
+    4: { cafeDensity: "high", cuisines: ["student cafés", "brunch spots", "international"], text: "Café-dense student district with a big brunch culture around the Freihausviertel." },
+    5: { cafeDensity: "medium", cuisines: ["multicultural eateries", "street food", "gentrifying bistros"], text: "Multicultural cheap eats and street food mix with new-wave bistros." },
+    6: { cafeDensity: "high", cuisines: ["shopping-street cafés", "Naschmarkt stalls", "bookshop cafés"], text: "Dense café scene along Mariahilfer Straße and around the Naschmarkt." },
+    7: { cafeDensity: "high", cuisines: ["specialty coffee", "international bistros", "nightlife bars"], text: "Vienna’s creative hub: specialty coffee and small international kitchens." },
+    8: { cafeDensity: "medium", cuisines: ["classic cafés", "theater bistros"], text: "Traditional cafés and cozy bistros; quieter and proudly local." },
+    9: { cafeDensity: "medium", cuisines: ["student cafés", "beer gardens", "ethnic eats"], text: "Student-friendly cafés, the Stiegl beer garden and international kitchens." },
+    10: { cafeDensity: "medium", cuisines: ["ethnic diversity", "street food", "southern Heurigen"], text: "Wide ethnic choice from Balkan to Asian, plus Heurigen in Oberlaa; café scene thinner." },
+    11: { cafeDensity: "low", cuisines: ["traditional Gasthäuser", "local pubs"], text: "Few cafés; traditional Gasthäuser and a grand coffee house near the cemetery." },
+    12: { cafeDensity: "medium", cuisines: ["market kitchens", "Neapolitan pizza", "French cafés"], text: "Meidlinger Markt is the food center; good pizza and cafés around it." },
+    13: { cafeDensity: "low", cuisines: ["classic coffee houses", "Schönbrunn cafés", "wine bars"], text: "Quiet café culture near Schönbrunn; few late-night spots." },
+    14: { cafeDensity: "low", cuisines: ["local bistros", "Hütteldorf eateries"], text: "Sparse but friendly local scene around Hütteldorf; not a dining destination." },
+    15: { cafeDensity: "medium", cuisines: ["international diversity", "street food", "market stands"], text: "Dense international eateries around Westbahnhof and Kriemhildplatz cafés." },
+    16: { cafeDensity: "medium", cuisines: ["Balkan grills", "market street food", "wine bars"], text: "Brunnenmarkt and Yppenplatz anchor a lively Balkan and wine scene." },
+    17: { cafeDensity: "low", cuisines: ["Wiener Beisl", "Wienerwald dining", "wine taverns"], text: "Scattered traditional Beisl and hillside dining; café scene thin." },
+    18: { cafeDensity: "low", cuisines: ["neighborhood cafés", "styrian bistros"], text: "Calm neighborhood cafés; limited but quality dining." },
+    19: { cafeDensity: "medium", cuisines: ["Heurigen", "fine dining", "village cafés"], text: "Heurigen country in Grinzing and Sievering, plus Amador fine dining." },
+    20: { cafeDensity: "medium", cuisines: ["international street food", "canal bars", "neighborhood bistros"], text: "Multicultural eateries along Wallensteinstraße; fewer classic cafés." },
+    21: { cafeDensity: "medium", cuisines: ["Stammersdorf Heurigen", "market stands", "local pubs"], text: "Suburban mix: Heurigen culture to the north, market stands and pubs near the Spitz." },
+    22: { cafeDensity: "low", cuisines: ["mall food courts", "lakeside restaurants", "Kaisermühlen classics"], text: "Sparse scene: Donauzentrum food courts and Alte Donau terraces." },
+    23: { cafeDensity: "low", cuisines: ["Heurigen", "village cafés", "market eats"], text: "Scattered Heurigen and village cafés; very quiet food scene." }
   };
   const DISTRICT_PALETTE = ["#f3b59f", "#a8d9c3", "#c5b8e7", "#a8d2e8", "#f6df8a", "#eca9bb"];
   const MAX_COMPARISON_DISTRICTS = 3;
@@ -54,6 +169,7 @@
     showDistrictNumbers: "dn",
     showKeywords: "kwv",
     showLandmarks: "lmv",
+    showFood: "fdv",
     showCostIndicators: "csi",
     showCost: "csv",
     showStations: "stv",
@@ -62,6 +178,7 @@
     showSbahn: "sbv",
     showTram: "trv",
     showMainRoads: "mrv",
+    showSafety: "sfv",
     searchText: "q",
     selectedCostTiers: "ct",
     connectedToDistrictId: "cd",
@@ -90,7 +207,9 @@
   let sbahnLayer;
   let tramLayer;
   let mainRoadsLayer;
+  let safetySpotLayer;
   let bubbleStackRegistry = new Map();
+  let tooltipModeBound = "default";
 
   const ui = {};
   let suppressUrlSync = false;
@@ -108,6 +227,7 @@
     showDistrictNumbers: true,
     showKeywords: false,
     showLandmarks: false,
+    showFood: false,
     showCostIndicators: false,
     showCost: false,
     showStations: true,
@@ -116,6 +236,7 @@
     showSbahn: false,
     showTram: false,
     showMainRoads: false,
+    showSafety: false,
     searchText: "",
     selectedCostTiers: new Set(),
     connectedToDistrictId: null,
@@ -960,6 +1081,7 @@
     landmarkLayer = L.layerGroup().addTo(map);
     costIndicatorLayer = L.layerGroup().addTo(map);
     costLayer = L.layerGroup().addTo(map);
+    safetySpotLayer = L.layerGroup().addTo(map);
     stationLayer = L.layerGroup().addTo(map);
     connectionLineLayer = L.layerGroup().addTo(map);
     ubahnLayer = L.layerGroup().addTo(map);
@@ -1096,10 +1218,19 @@
     const hasActiveSelection = Boolean(state.selectedDistrictId || effectiveHub || state.dualHubSelections.length);
     const isBackground = hasActiveSelection && !isSelected && !isCompared && !isConnected && !isHubConnected && !isDualHubConnected;
 
-    const baseFill = state.showDistrictColors ? district.properties._color : "#f5ead6";
+    const safety = state.showSafety ? SAFETY_DATA[districtId] : null;
+    const safetyFillColor = safety ? ((SAFETY_LEVELS[safety.level] || {}).color || "#f5ead6") : null;
+    const food = !safety && state.showFood ? FOOD_SCENE[districtId] : null;
+    const foodFillColor = food ? ((FOOD_DENSITY[food.cafeDensity] || {}).color || "#f5ead6") : null;
+    const overlayFillColor = safetyFillColor || foodFillColor;
+    const baseFill = overlayFillColor
+      ? overlayFillColor
+      : (state.showDistrictColors ? district.properties._color : "#f5ead6");
 
     let fillColor;
-    if (isSelected) {
+    if (overlayFillColor) {
+      fillColor = hasActiveFilters && !isMatch ? "#d0cdc5" : overlayFillColor;
+    } else if (isSelected) {
       fillColor = "#f08b62";
     } else if (isCompared) {
       fillColor = "#eca9bb";
@@ -1158,7 +1289,17 @@
     }
 
     let fillOpacity;
-    if (isSelected) {
+    if (overlayFillColor) {
+      if (isHovered) {
+        fillOpacity = 0.68;
+      } else if (hasActiveFilters && !isMatch) {
+        fillOpacity = 0.18;
+      } else if (isBackground) {
+        fillOpacity = 0.30;
+      } else {
+        fillOpacity = 0.55;
+      }
+    } else if (isSelected) {
       fillOpacity = 0.85;
     } else if (isHovered) {
       fillOpacity = 0.80;
@@ -1193,6 +1334,8 @@
     const hubConnected = effectiveHub ? computeSpecialHubConnectedDistricts(effectiveHub) : new Set();
     const dualHubConnected = computeDualHubConnectedDistricts();
     renderDistrictStyles(matchSet, hubConnected, dualHubConnected);
+    syncDistrictTooltips();
+    renderSafetySpots(matchSet);
     renderLabels(matchSet);
     renderCostIndicators(matchSet);
     renderCostBadges(matchSet);
@@ -1216,6 +1359,112 @@
       const districtId = layer.feature.properties._districtId;
       layer.setStyle(districtStyleById(districtId, matchSet, hubConnected, dualHubConnected));
     });
+  }
+
+  function syncDistrictTooltips() {
+    let tooltipMode = "default";
+    if (state.showSafety) {
+      tooltipMode = "safety";
+    } else if (state.showFood) {
+      tooltipMode = "food";
+    }
+    if (tooltipMode === tooltipModeBound) {
+      return;
+    }
+    tooltipModeBound = tooltipMode;
+
+    districtLayer.eachLayer((layer) => {
+      layer.unbindTooltip();
+      if (tooltipMode === "safety") {
+        layer.bindTooltip(buildSafetyTooltipHtml(layer.feature), {
+          className: "safety-tooltip",
+          direction: "top",
+          sticky: true
+        });
+        return;
+      }
+      if (tooltipMode === "food") {
+        layer.bindTooltip(buildFoodSceneTooltipHtml(layer.feature), {
+          className: "food-tooltip",
+          direction: "top",
+          sticky: true
+        });
+        return;
+      }
+      layer.bindTooltip(
+        `${layer.feature.properties._districtId}. ${escapeHtml(layer.feature.properties.name)}`,
+        {
+          className: "station-tooltip",
+          direction: "top",
+          sticky: true
+        }
+      );
+    });
+  }
+
+  function buildSafetyTooltipHtml(feature) {
+    const properties = feature.properties;
+    const districtId = properties._districtId;
+    const safety = SAFETY_DATA[districtId];
+    if (!safety) {
+      return `${districtId}. ${escapeHtml(properties.name)}`;
+    }
+    const level = SAFETY_LEVELS[safety.level] || SAFETY_LEVELS.moderate;
+    return (
+      `<div class="safety-tooltip-title">${districtId}. ${escapeHtml(properties.name)}</div>` +
+      `<div class="safety-tooltip-level" style="background:${level.color}">${escapeHtml(level.label)}</div>` +
+      `<div class="safety-tooltip-text">${escapeHtml(safety.text)}</div>`
+    );
+  }
+
+  function renderSafetySpots(matchSet) {
+    safetySpotLayer.clearLayers();
+    if (!state.showSafety) {
+      return;
+    }
+
+    SAFETY_SPOTS.forEach((spot) => {
+      if (!isDistrictVisible(spot.districtId, matchSet)) {
+        return;
+      }
+
+      const level = SAFETY_LEVELS[spot.level] || SAFETY_LEVELS.moderate;
+      const circle = L.circle([spot.lat, spot.lng], {
+        renderer: canvasRenderer,
+        radius: spot.radius || 700,
+        color: level.color,
+        weight: 1.2,
+        opacity: 0.9,
+        fillColor: level.color,
+        fillOpacity: 0.38
+      });
+
+      circle.bindTooltip(buildSafetySpotTooltipHtml(spot, level), {
+        className: "safety-tooltip",
+        direction: "top",
+        sticky: true
+      });
+
+      circle.on("click", (event) => {
+        const additiveSelection = Boolean(event.originalEvent?.ctrlKey || event.originalEvent?.metaKey);
+        selectDistrict(spot.districtId, additiveSelection);
+      });
+
+      safetySpotLayer.addLayer(circle);
+    });
+  }
+
+  function buildSafetySpotTooltipHtml(spot, level) {
+    const district = districtById.get(spot.districtId);
+    const districtLabel = district
+      ? `${spot.districtId}. ${district.properties.name}`
+      : `District ${spot.districtId}`;
+    return (
+      `<div class="safety-tooltip-title">${escapeHtml(spot.name)}</div>` +
+      `<div class="safety-tooltip-level" style="background:${level.color}">${escapeHtml(level.label)}</div>` +
+      `<div class="safety-tooltip-text">${escapeHtml(spot.text)}</div>` +
+      `<div class="safety-tooltip-district">${escapeHtml(districtLabel)}</div>`
+    );
   }
 
   function renderLabels(matchSet) {
@@ -1318,6 +1567,25 @@
         landmarkLayer.addLayer(marker);
       });
     });
+  }
+
+  function buildFoodSceneTooltipHtml(feature) {
+    const properties = feature.properties;
+    const districtId = properties._districtId;
+    const scene = FOOD_SCENE[districtId];
+    if (!scene) {
+      return `${districtId}. ${escapeHtml(properties.name)}`;
+    }
+    const density = FOOD_DENSITY[scene.cafeDensity] || FOOD_DENSITY.medium;
+    const tags = (scene.cuisines || [])
+      .map((cuisine) => `<span class="food-tooltip-tag">${escapeHtml(cuisine)}</span>`)
+      .join("");
+    return (
+      `<div class="food-tooltip-title">${districtId}. ${escapeHtml(properties.name)}</div>` +
+      `<div class="food-tooltip-type" style="background:${density.color}">${escapeHtml(density.label)}</div>` +
+      `<div class="food-tooltip-tags">${tags}</div>` +
+      `<div class="food-tooltip-text">${escapeHtml(scene.text)}</div>`
+    );
   }
 
   function renderCostIndicators(matchSet) {
@@ -2086,6 +2354,11 @@
       .map((landmark) => `<li>${escapeHtml(landmark.name)}</li>`)
       .join("");
 
+    const foodScene = FOOD_SCENE[properties._districtId];
+    const foodSceneHtml = foodScene
+      ? `<p><strong>Food scene:</strong> ${escapeHtml((FOOD_DENSITY[foodScene.cafeDensity] || {}).label || "")}. ${escapeHtml((foodScene.cuisines || []).join(", "))} &mdash; ${escapeHtml(foodScene.text)}</p>`
+      : "";
+
     const stationsHtml = (properties.majorStations || [])
       .map((station) => `<li>${escapeHtml(station.name)} <span class="mono">${escapeHtml((station.lines || []).join(", "))}</span></li>`)
       .join("");
@@ -2106,11 +2379,17 @@
     const website = properties.website
       ? `<a href="${escapeHtml(properties.website)}" target="_blank" rel="noreferrer noopener">District page</a>`
       : "";
+    const safety = SAFETY_DATA[properties._districtId];
+    const safetyHtml = safety
+      ? `<p><strong>Safety:</strong> ${escapeHtml((SAFETY_LEVELS[safety.level] || {}).label || "")} - ${escapeHtml(safety.text)}</p>`
+      : "";
 
     ui.districtInfo.innerHTML = `
       <h3>${properties._districtId}. ${escapeHtml(properties.name)}</h3>
       <p class="muted">${website}</p>
       <p><strong>Cost:</strong> ${escapeHtml(formatCostTier(cost.tier))} - ${escapeHtml(cost.description || "No description")}</p>
+      ${safetyHtml}
+      ${foodSceneHtml}
       <div class="tags">${keywordsHtml || '<span class="muted">No keywords</span>'}</div>
       <p><strong>Landmarks</strong></p>
       <ul>${landmarksHtml || "<li>None listed</li>"}</ul>
@@ -2151,11 +2430,27 @@
     var anyFilter = doesStateHaveActiveFilters();
     var matchSet = anyFilter ? computeMatchingDistrictIds() : null;
 
-    if (state.showDistrictColors) {
+    if (state.showSafety) {
+      rows.push('<div class="legend-section-title">Safety (crime)</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + SAFETY_LEVELS.safe.color + '"></span>low crime &mdash; generally safe</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + SAFETY_LEVELS.moderate.color + '"></span>average crime &mdash; usual caution</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + SAFETY_LEVELS.elevated.color + '"></span>higher crime &mdash; extra awareness</div>');
+      rows.push('<div class="legend-row"><span class="legend-circle" style="background:' + SAFETY_LEVELS.elevated.color + ';opacity:0.6"></span>shaded spots mark hotspots &mdash; hover for details</div>');
+      rows.push('<div class="legend-row muted">Based on Vienna police crime statistics. General guidance only.</div>');
+    }
+
+    if (state.showDistrictColors || state.showSafety || state.showFood) {
       rows.push('<div class="legend-section-title">Districts</div>');
-      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#f3b59f"></span>colored by district</div>');
+      const fillDescription = state.showSafety
+        ? "filled by safety level"
+        : (state.showFood ? "filled by café density" : "colored by district");
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#f3b59f"></span>' + fillDescription + '</div>');
       if (anyFilter) {
-        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#a8d9c3"></span>' + matchSet.size + ' matching districts</div>');
+        if (state.showSafety || state.showFood) {
+          rows.push('<div class="legend-row"><span class="legend-text">match</span>' + matchSet.size + ' matching districts</div>');
+        } else {
+          rows.push('<div class="legend-row"><span class="legend-swatch" style="background:#a8d9c3"></span>' + matchSet.size + ' matching districts</div>');
+        }
         rows.push('<div class="legend-row"><span class="legend-dot" style="background:#d0cdc5;opacity:0.5"></span>non-matching (dimmed)</div>');
       }
     }
@@ -2211,6 +2506,14 @@
     if (state.showLandmarks) {
       rows.push('<div class="legend-section-title">Landmarks</div>');
       rows.push('<div class="legend-row"><span class="legend-circle" style="background:#f6df8a"></span>landmark</div>');
+    }
+
+    if (state.showFood) {
+      rows.push('<div class="legend-section-title">Cafés &amp; Restaurants</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + FOOD_DENSITY.high.color + '"></span>café-rich area</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + FOOD_DENSITY.medium.color + '"></span>some cafés</div>');
+      rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + FOOD_DENSITY.low.color + '"></span>few cafés</div>');
+      rows.push('<div class="legend-row muted">Hover a district for its food scene. Safety colors win when both layers are on.</div>');
     }
 
     if (state.showDistrictLabels || state.showDistrictNumbers) {
