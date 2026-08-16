@@ -14,7 +14,8 @@
     { key: "showDirectConnections", label: "Direct connections", default: true, group: "Transport" },
     { key: "showUbahn", label: "U-Bahn lines", default: false, group: "Transit lines" },
     { key: "showSbahn", label: "S-Bahn lines", default: false, group: "Transit lines" },
-    { key: "showTram", label: "Tram lines", default: false, group: "Transit lines" }
+    { key: "showTram", label: "Tram lines", default: false, group: "Transit lines" },
+    { key: "showMainRoads", label: "Main roads", default: false, group: "Roads" }
   ];
 
   const BASE_VIEW = { lat: 48.2082, lng: 16.3738, zoom: 11 };
@@ -60,6 +61,7 @@
     showUbahn: "ubv",
     showSbahn: "sbv",
     showTram: "trv",
+    showMainRoads: "mrv",
     searchText: "q",
     selectedCostTiers: "ct",
     connectedToDistrictId: "cd",
@@ -87,6 +89,7 @@
   let ubahnLayer;
   let sbahnLayer;
   let tramLayer;
+  let mainRoadsLayer;
   let bubbleStackRegistry = new Map();
 
   const ui = {};
@@ -112,6 +115,7 @@
     showUbahn: false,
     showSbahn: false,
     showTram: false,
+    showMainRoads: false,
     searchText: "",
     selectedCostTiers: new Set(),
     connectedToDistrictId: null,
@@ -961,6 +965,7 @@
     ubahnLayer = L.layerGroup().addTo(map);
     sbahnLayer = L.layerGroup().addTo(map);
     tramLayer = L.layerGroup().addTo(map);
+    mainRoadsLayer = L.layerGroup().addTo(map);
 
     const mapView = state.mapView;
     if (mapView) {
@@ -1195,6 +1200,7 @@
     renderLandmarks(matchSet);
     renderStations(matchSet, dualHubConnected);
     renderConnectionLines(matchSet, hubConnected, dualHubConnected);
+    renderMainRoads();
     renderUbahnLines();
     renderSbahnLines();
     renderTramLines();
@@ -1874,6 +1880,36 @@
     });
   }
 
+  function renderMainRoads() {
+    mainRoadsLayer.clearLayers();
+    if (!state.showMainRoads) {
+      return;
+    }
+
+    MAIN_ROUTES.forEach(function (road) {
+      if (!road.coords || road.coords.length < 2) {
+        return;
+      }
+
+      const polyline = L.polyline(road.coords, {
+        renderer: canvasRenderer,
+        color: road.color,
+        weight: road.weight || 4,
+        opacity: road.opacity || 0.9,
+        dashArray: road.dashArray || ""
+      });
+
+      polyline.bindTooltip(`<strong>${escapeHtml(road.label)}</strong>`, {
+        className: "line-tooltip",
+        direction: "top",
+        sticky: true,
+        offset: [0, -10]
+      });
+
+      mainRoadsLayer.addLayer(polyline);
+    });
+  }
+
   function collectDistrictLineTokens(transport) {
     const tokens = new Set();
     ["ubahn", "sbahn", "tram", "bus"].forEach((mode) => {
@@ -2212,6 +2248,13 @@
       rows.push('<div class="legend-section-title">Tram Lines</div>');
       TRAM_CORRIDORS.forEach(function (corridor) {
         rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + corridor.color + '"></span>' + escapeHtml(corridor.label) + '</div>');
+      });
+    }
+
+    if (state.showMainRoads) {
+      rows.push('<div class="legend-section-title">Main Roads</div>');
+      MAIN_ROUTES.forEach(function (road) {
+        rows.push('<div class="legend-row"><span class="legend-swatch" style="background:' + road.color + '"></span>' + escapeHtml(road.label) + '</div>');
       });
     }
 
