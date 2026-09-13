@@ -2,12 +2,21 @@ const fs = require('fs');
 const path = require('path');
 
 const apiKey = process.env.MAP_OF_VIENNA_MAP_API_KEY || '';
+const apiUrl = process.env.MAP_OF_VIENNA_API_URL || '';
 
-const target = path.join(__dirname, '..', 'src', 'environments', 'environment.ts');
+const envDir = path.join(__dirname, '..', 'src', 'environments');
 
-const output = `export const environment = {\n  mapApiKey: ${JSON.stringify(apiKey)},\n};\n`;
+const files = [
+  { name: 'environment.ts', apiBaseUrl: apiUrl || 'http://localhost:8000' },
+  { name: 'environment.prod.ts', apiBaseUrl: apiUrl || 'https://api.mapofvienna.com' },
+];
 
-fs.mkdirSync(path.dirname(target), { recursive: true });
-fs.writeFileSync(target, output, 'utf8');
+fs.mkdirSync(envDir, { recursive: true });
 
-console.log(`[set-env] ${apiKey ? 'mapApiKey configured' : 'mapApiKey not set (CARTO basemaps used without a key)'}`);
+files.forEach(({ name, apiBaseUrl }) => {
+  const output = `export const environment = {\n  apiBaseUrl: ${JSON.stringify(apiBaseUrl)},\n  mapApiKey: ${JSON.stringify(apiKey)},\n};\n`;
+  fs.writeFileSync(path.join(envDir, name), output, 'utf8');
+  console.log(`[set-env] ${name} -> apiBaseUrl=${apiBaseUrl}`);
+});
+
+console.log(`[set-env] mapApiKey ${apiKey ? 'configured' : 'not set'}`);

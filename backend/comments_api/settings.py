@@ -7,7 +7,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-development-ke
 
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,localhost:8000').split(',')
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,localhost:8000,api.mapofvienna.com').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -73,7 +73,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
-    'http://localhost:4200,http://localhost:8000'
+    'http://localhost:4200,http://localhost:8000,https://mapofvienna.com,https://www.mapofvienna.com'
 ).split(',')
 
 CORS_ALLOW_CREDENTIALS = True

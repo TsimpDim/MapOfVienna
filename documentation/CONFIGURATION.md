@@ -152,37 +152,33 @@ EMAIL_HOST_PASSWORD = 'your-app-password'
 
 ## Frontend Configuration
 
-### Environment Files
+### Environment Variables
 
-Create `frontend/.env`:
+The frontend reads its configuration from environment variables via `frontend/scripts/set-env.js`, which is run automatically before `npm start` and `npm run build`. It regenerates `src/environments/environment.ts` (development) and `src/environments/environment.prod.ts` (production).
 
+```bash
+# CARTO basemaps API key (optional)
+MAP_OF_VIENNA_MAP_API_KEY=your-carto-key
+
+# Backend API base URL (optional — defaults below)
+MAP_OF_VIENNA_API_URL=https://api.mapofvienna.com
 ```
-API_BASE_URL=http://localhost:8000/api
-NG_ENV=development
-```
+
+Defaults:
+
+| Build | API base URL |
+|-------|--------------|
+| development (`npm start`) | `http://localhost:8000` |
+| production (`npm run build -- --configuration production`) | `https://api.mapofvienna.com` |
+
+The production build swaps in `environment.prod.ts` via `fileReplacements` in `frontend/angular.json`.
 
 ### API Service Configuration
 
-Edit `frontend/src/app/services/thread.service.ts`:
+The API base URL is set in `src/environments/environment.ts` / `environment.prod.ts` and consumed by `frontend/src/app/services/comment.service.ts`:
 
 ```typescript
-export class ThreadService {
-  private apiUrl = 'http://localhost:8000/api/threads';
-  
-  constructor(private http: HttpClient) { }
-  
-  // Service methods...
-}
-```
-
-For production:
-
-```typescript
-export class ThreadService {
-  private apiUrl = environment.production 
-    ? 'https://api.yourdomain.com/api/threads'
-    : 'http://localhost:8000/api/threads';
-}
+private apiUrl = `${environment.apiBaseUrl}/api/comments`;
 ```
 
 ### Angular Build Configuration

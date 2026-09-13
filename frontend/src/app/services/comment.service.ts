@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Comment {
   id: number;
@@ -42,8 +43,8 @@ function readIds(key: string): number[] {
   providedIn: 'root'
 })
 export class CommentService {
-  private apiUrl = 'http://localhost:8000/api/comments';
-  private repliesApiUrl = 'http://localhost:8000/api/replies';
+  private apiUrl = `${environment.apiBaseUrl}/api/comments`;
+  private repliesApiUrl = `${environment.apiBaseUrl}/api/replies`;
 
   // Ids of comments/replies created during the current browser session,
   // so the user can delete their own freshly-posted items.

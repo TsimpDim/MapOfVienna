@@ -1,4 +1,4 @@
 export const environment = {
-  apiBaseUrl: "http://localhost:8000",
+  apiBaseUrl: "https://api.mapofvienna.com",
   mapApiKey: "",
 };
