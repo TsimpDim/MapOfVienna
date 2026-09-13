@@ -401,6 +401,79 @@ select { appearance: auto; }
 
 #map { width: 100%; height: 100%; min-height: 100vh; min-height: 100dvh; background: var(--paper-deep); }
 
+/* ---- Map search (floating bar, top-left over map) ---- */
+.map-search {
+  position: absolute;
+  top: 17px;
+  left: 17px;
+  z-index: 720;
+  display: flex;
+  align-items: stretch;
+  width: min(300px, calc(100% - 34px));
+  height: 42px;
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 2px;
+  transition: left 280ms ease-out;
+}
+
+/* When the left sidebar is open, nudge the bar to the visible map edge */
+.app-shell.panel-expanded .map-search { left: calc(min(360px, 100vw) + 17px); }
+
+.map-search-icon {
+  display: grid;
+  width: 42px;
+  min-width: 42px;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.map-search-icon:hover { background: var(--butter); }
+.map-search-icon svg { display: block; }
+
+.map-search .map-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  min-height: 0;
+  padding: 0 12px 0 2px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 450;
+  line-height: 1.5;
+}
+.map-search .map-search-input::placeholder { color: var(--ink-soft); opacity: 1; }
+
+.map-search-feedback {
+  position: absolute;
+  top: 66px;
+  left: 17px;
+  z-index: 720;
+  margin: 0;
+  padding: 5px 10px;
+  max-width: min(340px, calc(100% - 34px));
+  overflow-wrap: break-word;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 2px;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  transition: left 280ms ease-out;
+}
+.app-shell.panel-expanded .map-search-feedback { left: calc(min(360px, 100vw) + 17px); }
+.map-search-feedback.error { background: var(--rose); }
+
 /* ---- Right panels (floating over map) ---- */
 .right-panels {
   position: absolute;
@@ -551,6 +624,8 @@ select { appearance: auto; }
   .panel-collapse-toggle:not(.active) { left: calc(100vw - 38px); }
   .map-wrap { margin-left: 0 !important; }
   .app-shell.panel-expanded .right-panels { display: none; }
+  .app-shell.panel-expanded .map-search { display: none; }
+  .app-shell.panel-expanded .map-search-feedback { display: none; }
   .app-shell.comments-expanded .panel-collapse-toggle { display: none; }
   .app-shell.panel-expanded .comments-expand-toggle { display: none; }
   .sidebar-comments { width: 100vw; }
@@ -569,6 +644,10 @@ select { appearance: auto; }
 }
 
 @media (max-width: 560px) {
+  .map-search { left: 12px; top: 12px; width: calc(100% - 88px); }
+  .app-shell.panel-expanded .map-search { left: 12px; }
+  .map-search-feedback { left: 12px; top: 60px; max-width: calc(100% - 24px); }
+  .app-shell.panel-expanded .map-search-feedback { left: 12px; }
   .panel { padding: 14px 10px 22px; }
   .panel-collapse-toggle.active { height: 72px; min-height: 72px; max-height: 72px; }
   .comments-expand-toggle { height: 72px; min-height: 72px; max-height: 72px; }

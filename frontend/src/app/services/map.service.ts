@@ -1,6 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MapStateService } from './map-state.service';
+import { locationKeyFor } from './comment.service';
+import type { LocationSelection, LocationMarker } from './comment.service';
+import { environment } from '../../environments/environment';
 import { MAP_OF_VIENNA_MAP_API_KEY } from '../../generated/map-api-key';
 import * as L from 'leaflet';
 import {
@@ -114,12 +117,18 @@ export class MapService {
   private mainRoadsLayer: any;
   private safetySpotLayer: any;
   private commentCountLayer: any;
+  private searchMarkerLayer: any;
+  private locationCommentMarkerLayer: any;
 
   /** Total comment count per district id. */
   readonly commentCounts = signal<Map<number, number>>(new Map());
 
+  /** Comment markers for searched (non-district) locations. */
+  readonly locationCommentMarkers = signal<LocationMarker[]>([]);
+
   private onDistrictClickCb: ((id: number, ctrl?: boolean) => void) | null = null;
   private onHubClickCb: ((station: any) => void) | null = null;
+  private onSearchLocationClickCb: ((location: LocationSelection) => void) | null = null;
 
   constructor(private http: HttpClient, private mapState: MapStateService) {}
 
@@ -164,6 +173,8 @@ export class MapService {
     this.keywordLayer = L.layerGroup().addTo(this.map);
     this.labelLayer = L.layerGroup().addTo(this.map);
     this.commentCountLayer = L.layerGroup().addTo(this.map);
+    this.searchMarkerLayer = L.layerGroup().addTo(this.map);
+    this.locationCommentMarkerLayer = L.layerGroup().addTo(this.map);
 
     // ESC handler
     document.addEventListener('keydown', (e) => {
@@ -427,6 +438,7 @@ export class MapService {
     this.renderMainRoads();
     this.renderSafetySpots();
     this.renderCommentCounts();
+    this.renderLocationCommentMarkers();
   }
 
   private updateTooltipMode(): void {
@@ -861,6 +873,37 @@ export class MapService {
     return `<span class="district-comment-count-inner">${svg}<span class="district-comment-count-num">${count}</span></span>`;
   }
 
+  // ---- Location comment markers (searched places with comments) ----
+
+  private renderLocationCommentMarkers(): void {
+    this.locationCommentMarkerLayer.clearLayers();
+    if (!this.mapState.showComments()) return;
+    this.locationCommentMarkers().forEach(m => {
+      const location: LocationSelection = {
+        key: m.location_key,
+        type: m.location_type,
+        name: m.location_name,
+        lat: m.location_lat,
+        lng: m.location_lng,
+      };
+      const marker = L.marker([m.location_lat, m.location_lng], {
+        keyboard: false, interactive: true, pane: COMMENT_PANE, zIndexOffset: 500,
+        icon: createAutoDivIcon('location-comment-count', this.buildLocationCommentCountHtml(m.count))
+      });
+      marker.on('click', () => this.onSearchLocationClickCb?.(location));
+      const noun = m.count === 1 ? 'comment' : 'comments';
+      marker.bindTooltip(`${esc(m.location_name)}<span class="pin-tip-hint"> · ${m.count} ${noun}</span>`, {
+        className: 'station-tooltip', direction: 'top', offset: [0, -8]
+      });
+      this.locationCommentMarkerLayer.addLayer(marker);
+    });
+  }
+
+  private buildLocationCommentCountHtml(count: number): string {
+    const svg = '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+    return `<span class="location-comment-count-inner">${svg}<span class="location-comment-count-num">${count}</span></span>`;
+  }
+
   // ---- Stacked badge icons (matching reference exactly) ----
 
   private createStackedBadgeIcon(districtId: number, className: string, html: string, stackRole: string): L.DivIcon {
@@ -1082,9 +1125,18 @@ export class MapService {
     this.onHubClickCb = cb;
   }
 
+  setOnSearchLocationClick(cb: (location: LocationSelection) => void): void {
+    this.onSearchLocationClickCb = cb;
+  }
+
   setCommentCounts(counts: Map<number, number>): void {
     this.commentCounts.set(counts);
     if (this.mapReady()) this.renderCommentCounts();
+  }
+
+  setLocationCommentMarkers(markers: LocationMarker[]): void {
+    this.locationCommentMarkers.set(markers);
+    if (this.mapReady()) this.renderLocationCommentMarkers();
   }
 
   incrementCommentCount(districtId: number): void {
@@ -1099,6 +1151,162 @@ export class MapService {
     if (!f || !this.map) return;
     const bounds = this.getFeatureBounds(f.geometry);
     if (bounds) this.map.fitBounds(bounds, { padding: [50, 50] });
+  }
+
+  /**
+   * Finds a place on the map from a free-text query (district, landmark or
+   * major station) and moves the map to it. Returns the matched place or null.
+   */
+  focusPlace(query: string): { label: string; kind: 'district' | 'landmark' | 'station' } | null {
+    const q = normalizeText(query);
+    if (!q || !this.map) return null;
+
+    const candidates: Array<{
+      score: number;
+      kind: 'district' | 'landmark' | 'station';
+      label: string;
+      districtId?: number;
+      lat?: number;
+      lng?: number;
+    }> = [];
+
+    // Districts (id, name, keywords / other searchable text)
+    this.dataset.forEach(f => {
+      const props = f.properties;
+      const id = props._districtId;
+      const name = normalizeText(props.name);
+      const nameDe = normalizeText(props.name_de);
+      const blob: string = props._searchBlob || '';
+      let score = 0;
+      if (String(id) === q || Number(q) === id) score = 120;
+      else if (name === q || nameDe === q) score = 100;
+      else if (name.startsWith(q) || nameDe.startsWith(q)) score = 80;
+      else if (name.includes(q) || nameDe.includes(q)) score = 60;
+      else if (blob.includes(q)) score = 40;
+      if (score > 0) candidates.push({ score, kind: 'district', label: `${id}. ${props.name}`, districtId: id });
+    });
+
+    // Landmarks
+    this.dataset.forEach(f => {
+      (f.properties.landmarks || []).forEach((lm: any) => {
+        const name = normalizeText(lm.name);
+        let score = 0;
+        if (name === q) score = 100;
+        else if (name.startsWith(q)) score = 80;
+        else if (name.includes(q)) score = 60;
+        if (score > 0) {
+          candidates.push({ score, kind: 'landmark', label: lm.name, districtId: f.properties._districtId, lat: Number(lm.lat), lng: Number(lm.lng) });
+        }
+      });
+    });
+
+    // Major stations
+    this.stations.forEach(s => {
+      const name = normalizeText(s.name);
+      let score = 0;
+      if (name === q) score = 100;
+      else if (name.startsWith(q)) score = 80;
+      else if (name.includes(q)) score = 60;
+      if (score > 0) {
+        candidates.push({ score, kind: 'station', label: s.name, districtId: s.districtId, lat: Number(s.lat), lng: Number(s.lng) });
+      }
+    });
+
+    if (!candidates.length) return null;
+
+    // Best match first; prefer a specific place (landmark/station) over a district on ties.
+    const kindRank = { landmark: 2, station: 2, district: 1 };
+    candidates.sort((a, b) => (b.score - a.score) || (kindRank[b.kind] - kindRank[a.kind]));
+    const best = candidates[0];
+
+    if (best.kind === 'district') {
+      this.panToDistrict(best.districtId!);
+      this.mapState.selectDistrict(best.districtId!);
+      this.clearSearchMarker();
+    } else {
+      this.focusLocation({
+        key: locationKeyFor(best.kind, best.lat!, best.lng!),
+        type: best.kind,
+        name: best.label,
+        lat: best.lat!,
+        lng: best.lng!,
+      });
+    }
+
+    return { label: best.label, kind: best.kind };
+  }
+
+  clearSearchFocus(): void {
+    this.clearSearchMarker();
+  }
+
+  /** Pans to a searched (non-district) location and drops a clickable pin. */
+  focusLocation(location: LocationSelection): void {
+    this.panTo(location.lat, location.lng, 15);
+    this.showSearchMarker(location.lat, location.lng, location.name, location);
+  }
+
+  /** Moves the map to an arbitrary coordinate and drops a search pin. */
+  focusCoordinate(lat: number, lng: number, label: string): void {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    this.focusLocation({
+      key: locationKeyFor('place', lat, lng),
+      type: 'place',
+      name: label,
+      lat,
+      lng,
+    });
+  }
+
+  /**
+   * Geocodes a free-text address/place through the backend Nominatim proxy.
+   * Resolves to a (possibly empty) list of { label, lat, lng, type } results.
+   */
+  async geocodeRemote(query: string): Promise<Array<{ name: string; label: string; lat: number; lng: number; type: string }>> {
+    try {
+      const response: any = await this.http
+        .get<any>(`${environment.apiBaseUrl}/api/geocode/`, { params: { q: query } })
+        .toPromise();
+      return (response?.results || []).map((r: any) => ({
+        name: r.name || r.label || query,
+        label: r.label || r.name || query,
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        type: r.type || r.category || '',
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  private panTo(lat: number, lng: number, zoom: number): void {
+    if (!this.map) return;
+    const targetZoom = Math.max(this.map.getZoom(), zoom);
+    this.map.flyTo([lat, lng], targetZoom, { duration: 0.6 });
+  }
+
+  private showSearchMarker(lat: number, lng: number, label: string, location?: LocationSelection): void {
+    this.clearSearchMarker();
+    if (!this.searchMarkerLayer) return;
+    const icon = L.divIcon({
+      className: 'search-pin',
+      html: '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#2d2a26" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+      iconSize: [30, 30], iconAnchor: [15, 30]
+    });
+    const marker = L.marker([lat, lng], { icon, keyboard: false, interactive: true, zIndexOffset: 1000 });
+    const tip = location
+      ? `${esc(label)}<span class="pin-tip-hint"> · click to comment</span>`
+      : esc(label);
+    marker.bindTooltip(tip, { className: 'station-tooltip', direction: 'top', offset: [0, -14] });
+    if (location) {
+      marker.on('click', () => this.onSearchLocationClickCb?.(location));
+    }
+    marker.addTo(this.searchMarkerLayer);
+    marker.openTooltip();
+  }
+
+  private clearSearchMarker(): void {
+    if (this.searchMarkerLayer) this.searchMarkerLayer.clearLayers();
   }
 
   private getFeatureBounds(geometry: any): L.LatLngBoundsExpression | null {

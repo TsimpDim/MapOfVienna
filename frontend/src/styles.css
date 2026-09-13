@@ -129,6 +129,29 @@ app-root {
 .district-comment-count-inner svg { flex-shrink: 0; }
 .district-comment-count-num { font-variant-numeric: tabular-nums; }
 
+/* Tiny comment markers on searched (non-district) locations */
+.location-comment-count-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: background 120ms ease-out;
+}
+.location-comment-count-inner:hover { background: var(--butter); }
+.location-comment-count-inner svg { flex-shrink: 0; }
+.location-comment-count-num { font-variant-numeric: tabular-nums; }
+
 .district-badge {
   transform: translate(-50%, -50%);
   display: inline-block;
@@ -195,6 +218,20 @@ app-root {
 }
 .station-icon:hover { transform: scale(1.14); }
 .station-icon.dual-selected { background: var(--butter); border: 1px solid var(--outline); border-radius: 50%; }
+
+/* ================================================================
+   Search pin (DivIcon — must be global)
+   ================================================================ */
+
+.search-pin {
+  display: block;
+  background: transparent;
+  border: 0;
+}
+.search-pin svg { display: block; }
+.search-pin svg path { fill: var(--active); stroke: var(--outline); }
+.search-pin svg circle { fill: var(--paper-bright); }
+.pin-tip-hint { color: var(--ink-soft); }
 
 /* ================================================================
    Tooltips

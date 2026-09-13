@@ -1,44 +1,13 @@
 import { Component, Output, EventEmitter, signal, effect, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CommentService, Comment } from '../../services/comment.service';
+import type { CommentTarget } from '../../services/comment.service';
 
 @Component({
   selector: 'app-comment-list',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="comment-list-container">
-      <div class="list-header">
-        <button class="btn-new-comment" (click)="onNewComment()">+ New Comment</button>
-      </div>
-
-      @if (loading()) {
-        <div class="loading">Loading comments...</div>
-      } @else if (comments().length === 0) {
-        <div class="empty-state">
-          <p>No comments yet.</p>
-          <p class="hint">Be the first to leave one!</p>
-        </div>
-      } @else {
-        <div class="comments-list">
-          @for (comment of comments(); track comment.id) {
-            <div class="comment-item" (click)="onSelectComment(comment.id)">
-              <div class="comment-header">
-                @if (isMyComment(comment.id)) {
-                  <button class="btn-delete" type="button" (click)="deleteComment(comment.id, $event)">Delete</button>
-                }
-                <span class="reply-count">{{ comment.reply_count || 0 }} {{ (comment.reply_count || 0) === 1 ? 'reply' : 'replies' }}</span>
-              </div>
-              <p class="comment-content">{{ comment.content }}</p>
-              <div class="comment-meta">
-                <span class="date">{{ formatDate(comment.created_at) }}</span>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  `,
+  templateUrl: './comment-list.component.html',
   styles: [`
     .comment-list-container {
       display: flex;
@@ -156,7 +125,7 @@ import { CommentService, Comment } from '../../services/comment.service';
   `]
 })
 export class CommentListComponent {
-  districtId = input.required<number>();
+  target = input.required<CommentTarget>();
   @Output() selectComment = new EventEmitter<number>();
   @Output() newComment = new EventEmitter<void>();
   @Output() changed = new EventEmitter<void>();
@@ -166,13 +135,13 @@ export class CommentListComponent {
 
   constructor(private commentService: CommentService) {
     effect(() => {
-      this.loadComments(this.districtId());
+      this.loadComments(this.target());
     });
   }
 
-  private loadComments(districtId: number): void {
+  private loadComments(target: CommentTarget): void {
     this.loading.set(true);
-    this.commentService.getCommentsByDistrict(districtId).subscribe({
+    this.commentService.getComments(target).subscribe({
       next: (response) => {
         this.comments.set(response.results || response as any);
         this.loading.set(false);

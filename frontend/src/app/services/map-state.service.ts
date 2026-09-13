@@ -1,4 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
+import type { LocationSelection } from './comment.service';
 
 export interface MapState {
   // Selection
@@ -62,6 +63,7 @@ export class MapStateService {
   selectedDistrictId = signal<number | null>(null);
   comparisonDistrictIds = signal<Set<number>>(new Set());
   selectedHubId = signal<string | null>(null);
+  selectedLocation = signal<LocationSelection | null>(null);
   
   // Toggles
   showDistrictColors = signal(true);
@@ -94,6 +96,7 @@ export class MapStateService {
 
   // Selection methods
   selectDistrict(districtId: number): void {
+    this.selectedLocation.set(null);
     // Toggle: clicking the same selected district deselects it
     if (this.selectedDistrictId() === districtId && this.comparisonDistrictIds().size <= 1) {
       this.selectedDistrictId.set(null);
@@ -106,6 +109,7 @@ export class MapStateService {
   }
 
   addToComparison(districtId: number): void {
+    this.selectedLocation.set(null);
     const current = new Set(this.comparisonDistrictIds());
     // Already in comparison: remove it
     if (current.has(districtId)) {
@@ -132,6 +136,18 @@ export class MapStateService {
   clearSelection(): void {
     this.selectedDistrictId.set(null);
     this.comparisonDistrictIds.set(new Set());
+    this.selectedLocation.set(null);
+  }
+
+  // Select a searched (non-district) location for commenting.
+  selectLocation(location: LocationSelection): void {
+    this.selectedDistrictId.set(null);
+    this.comparisonDistrictIds.set(new Set());
+    this.selectedLocation.set(location);
+  }
+
+  clearLocation(): void {
+    this.selectedLocation.set(null);
   }
 
   // Toggle a hub (Hauptbahnhof / Airport) selection; clicking again deselects it

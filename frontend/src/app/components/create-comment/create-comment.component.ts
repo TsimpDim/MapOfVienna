@@ -2,53 +2,13 @@ import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CommentService, Comment } from '../../services/comment.service';
+import type { CommentTarget } from '../../services/comment.service';
 
 @Component({
   selector: 'app-create-comment',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <div class="create-comment-container">
-      <div class="form-header">
-        <h2>Leave a comment</h2>
-      </div>
-
-      <form (ngSubmit)="submitForm()">
-        <div class="form-group">
-          <label for="content">Comment</label>
-          <textarea
-            id="content"
-            placeholder="Share your thoughts, questions, or observations..."
-            class="textarea-field"
-            [(ngModel)]="formData.content"
-            name="content"
-            required
-          ></textarea>
-        </div>
-
-        @if (error()) {
-          <div class="error-message">{{ error() }}</div>
-        }
-
-        <div class="form-actions">
-          <button
-            type="button"
-            class="btn-cancel"
-            (click)="onCancel()"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            class="btn-submit"
-            [disabled]="submitting() || !isFormValid()"
-          >
-            {{ submitting() ? 'Posting...' : 'Post Comment' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  `,
+  templateUrl: './create-comment.component.html',
   styles: [`
     .create-comment-container {
       padding: 20px;
@@ -155,7 +115,7 @@ import { CommentService, Comment } from '../../services/comment.service';
   `]
 })
 export class CreateCommentComponent {
-  @Input() districtId!: number;
+  @Input() target!: CommentTarget;
   @Output() created = new EventEmitter<Comment>();
   @Output() cancelled = new EventEmitter<void>();
 
@@ -178,12 +138,7 @@ export class CreateCommentComponent {
     this.submitting.set(true);
     this.error.set('');
 
-    const data = {
-      ...this.formData,
-      district_id: this.districtId
-    };
-
-    this.commentService.createComment(data).subscribe({
+    this.commentService.createComment(this.target, this.formData.content).subscribe({
       next: (comment) => {
         this.submitting.set(false);
         this.commentService.markCommentMine(comment.id);

@@ -1,0 +1,40 @@
+<div class="create-comment-container">
+  <div class="form-header">
+    <h2>Leave a comment</h2>
+  </div>
+
+  <form (ngSubmit)="submitForm()">
+    <div class="form-group">
+      <label for="content">Comment</label>
+      <textarea
+        id="content"
+        placeholder="Share your thoughts, questions, or observations..."
+        class="textarea-field"
+        [(ngModel)]="formData.content"
+        name="content"
+        required
+      ></textarea>
+    </div>
+
+    @if (error()) {
+      <div class="error-message">{{ error() }}</div>
+    }
+
+    <div class="form-actions">
+      <button
+        type="button"
+        class="btn-cancel"
+        (click)="onCancel()"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        class="btn-submit"
+        [disabled]="submitting() || !isFormValid()"
+      >
+        {{ submitting() ? 'Posting...' : 'Post Comment' }}
+      </button>
+    </div>
+  </form>
+</div>

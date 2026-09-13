@@ -29,7 +29,10 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Comment.objects.all()
         district_id = self.request.query_params.get('district_id')
-        if district_id:
+        location_key = self.request.query_params.get('location_key')
+        if location_key:
+            queryset = queryset.filter(location_key=location_key)
+        elif district_id:
             queryset = queryset.filter(district_id=district_id)
         return queryset
 
@@ -82,19 +85,58 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def counts(self, request):
-        """Total comment count per district (comments + their replies)."""
+        """Total comment count per district (comments + their replies).
+
+        Location comments (district_id is null) are excluded; they belong to a
+        specific searched place, not a district.
+        """
         counts = {
             row['district_id']: row['count']
-            for row in Comment.objects.values('district_id').annotate(count=Count('id'))
+            for row in Comment.objects.filter(district_id__isnull=False)
+            .values('district_id').annotate(count=Count('id'))
         }
         reply_rows = (
-            Reply.objects.values('comment__district_id')
+            Reply.objects.filter(comment__district_id__isnull=False)
+            .values('comment__district_id')
             .annotate(count=Count('id'))
         )
         for row in reply_rows:
             district_id = row['comment__district_id']
             counts[district_id] = counts.get(district_id, 0) + row['count']
         return Response({str(k): v for k, v in counts.items()})
+
+    @action(detail=False, methods=['get'])
+    def location_markers(self, request):
+        """Comment counts per searched (non-district) location.
+
+        Returns a flat list of { location_key, location_type, location_name,
+        location_lat, location_lng, count } so the map can render tiny markers
+        wherever someone has left a comment on a searched place.
+        """
+        markers: dict = {}
+        for row in (
+            Comment.objects.filter(location_key__isnull=False)
+            .values('location_key', 'location_type', 'location_name', 'location_lat', 'location_lng')
+            .annotate(count=Count('id'))
+        ):
+            key = row['location_key']
+            markers[key] = {
+                'location_key': key,
+                'location_type': row['location_type'],
+                'location_name': row['location_name'],
+                'location_lat': row['location_lat'],
+                'location_lng': row['location_lng'],
+                'count': row['count'],
+            }
+        for row in (
+            Reply.objects.filter(comment__location_key__isnull=False)
+            .values('comment__location_key')
+            .annotate(count=Count('id'))
+        ):
+            key = row['comment__location_key']
+            if key in markers:
+                markers[key]['count'] += row['count']
+        return Response({'markers': sorted(markers.values(), key=lambda m: -m['count'])})
 
 
 class ReplyViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):

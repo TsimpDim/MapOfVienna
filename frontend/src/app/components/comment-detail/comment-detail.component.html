@@ -1,0 +1,58 @@
+<div class="comment-detail-container">
+  <button class="btn-back" (click)="onBack()">← Back to comments</button>
+
+  @if (loading()) {
+    <div class="loading">Loading comment...</div>
+  } @else if (comment()) {
+    <div class="comment-content">
+      <div class="comment-meta">
+        <span class="date">{{ formatDate(comment()!.created_at) }}</span>
+        @if (isMyComment(comment()!.id)) {
+          <button class="btn-delete" type="button" (click)="deleteComment()">Delete</button>
+        }
+      </div>
+
+      <div class="comment-body">
+        {{ comment()!.content }}
+      </div>
+
+      <div class="replies-section">
+        <h3>{{ (comment()!.replies || []).length }} {{ ((comment()!.replies || []).length) === 1 ? 'Reply' : 'Replies' }}</h3>
+
+        @if ((comment()!.replies || []).length > 0) {
+          <div class="replies-list">
+            @for (reply of comment()!.replies!; track reply.id) {
+              <div class="reply-item">
+                <div class="reply-header">
+                  <span class="reply-meta-right">
+                    <span class="reply-date">{{ formatDate(reply.created_at) }}</span>
+                    @if (isMyReply(reply.id)) {
+                      <button class="btn-delete" type="button" (click)="deleteReply(reply.id)">Delete</button>
+                    }
+                  </span>
+                </div>
+                <div class="reply-content">{{ reply.content }}</div>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="reply-form">
+          <h4>Add your reply</h4>
+          <textarea
+            placeholder="Your reply..."
+            class="textarea-field"
+            [(ngModel)]="replyContent"
+          ></textarea>
+          <button
+            class="btn-submit"
+            (click)="submitReply()"
+            [disabled]="submitting() || !replyContent"
+          >
+            {{ submitting() ? 'Posting...' : 'Post Reply' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

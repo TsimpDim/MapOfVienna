@@ -1,0 +1,228 @@
+<div class="app-shell"
+  [class.panel-expanded]="!sidebarCollapsed()"
+  [class.comments-expanded]="mapState.selectedDistrictId() !== null && !commentsCollapsed()"
+>
+
+  <!-- Sidebar collapse toggle (matches reference exactly) -->
+  <button
+    class="panel-collapse-toggle"
+    [class.active]="sidebarCollapsed()"
+    type="button"
+    [attr.aria-label]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+    [title]="sidebarCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+    (click)="toggleSidebar()"
+  >
+    <span class="panel-collapse-icon" aria-hidden="true"></span>
+    <span class="panel-collapse-label">MENU</span>
+  </button>
+
+  <!-- Left panel -->
+  <aside class="panel" [class.collapsed]="sidebarCollapsed()" aria-label="Map controls and district details">
+    <header class="panel-header">
+      <p class="kicker"><span aria-hidden="true">23</span> Vienna districts</p>
+      <h1>Map of Vienna</h1>
+      <p>Choose a district to begin. Ctrl/Cmd+click to add up to three districts to your desk and compare cost, connections, landmarks, and local character.</p>
+    </header>
+
+    <!-- District desk -->
+    <section class="card selected-card">
+      <div class="section-heading">
+        <h2>District desk</h2>
+        <button class="text-button" type="button" (click)="clearSelection()">Clear</button>
+      </div>
+
+      <!-- Comparison cards (2+ districts) -->
+      @if (comparisonIds().length >= 2) {
+        <div id="comparisonInfo" class="comparison-info" aria-live="polite">
+          <p class="comparison-label">Comparing {{ comparisonIds().length }} districts</p>
+          <div class="comparison-set">
+            @for (id of comparisonIds(); track id) {
+              <article class="compare-card">
+                <button class="compare-remove" type="button" (click)="removeFromComparison(id)" [attr.aria-label]="'Remove ' + getDistrictName(id) + ' from comparison'">×</button>
+                <h3>{{ id }}. {{ getDistrictName(id) }}</h3>
+                <p><strong>{{ getDistrictCostTierLabel(id) }}</strong> · {{ getDistrictUbahn(id) }}</p>
+                <p>{{ getDistrictKeywords(id) }}</p>
+              </article>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Single district info -->
+      <div id="districtInfo" class="district-info" [innerHTML]="districtInfoHtml()"></div>
+    </section>
+
+    <!-- Filters -->
+    <section class="card filters-card">
+      <h2>Filters</h2>
+
+      <label class="field-label" for="districtSearch">District / text search</label>
+      <input id="districtSearch" type="text" placeholder="e.g. trendy, Belvedere, 7"
+        [value]="mapState.searchText()"
+        (input)="onSearchInput($any($event).target.value)"
+      />
+
+      <label class="field-label">Cost tiers</label>
+      <div class="chip-row">
+        @for (tier of costTierDefs; track tier.key) {
+          <button class="chip" type="button"
+            [class.active]="mapState.selectedCostTiers().has(tier.key)"
+            (click)="toggleCostTier(tier.key)"
+          >{{ tier.label }}</button>
+        }
+      </div>
+
+      <label class="field-label" for="connectedToDistrict">Directly connected to district</label>
+      <select id="connectedToDistrict"
+        [value]="mapState.connectedToDistrictId() ?? ''"
+        (change)="onConnectedChange($any($event).target.value)"
+      >
+        <option value="">Any district</option>
+        @for (d of allDistricts(); track d.id) {
+          <option [value]="d.id">{{ d.id }}. {{ d.name }}</option>
+        }
+      </select>
+
+      <div class="button-row">
+        <button type="button" (click)="clearFilters()">Clear filters</button>
+        <button type="button" (click)="resetMap()">Reset map</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- Map area -->
+  <main class="map-wrap">
+    <div class="map-search" role="search">
+      <button class="map-search-icon" type="button" aria-label="Search in map" title="Search in map" (click)="onSearchSubmit($event)">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+      <input
+        class="map-search-input"
+        type="text"
+        placeholder="Search in map"
+        aria-label="Search in map"
+        autocomplete="off"
+        [value]="mapSearchText()"
+        (input)="onMapSearchInput($any($event).target.value)"
+        (keydown.enter)="onSearchSubmit($event)"
+      />
+    </div>
+    @if (mapSearchFeedback(); as feedback) {
+      <p class="map-search-feedback" [class.error]="feedback.error">{{ feedback.text }}</p>
+    }
+
+    <div #mapElement id="map"></div>
+
+    <!-- Right panels: Map Layers & Legend (floating overlays on the map) -->
+    <div class="right-panels">
+      <div class="right-panel layers-panel" aria-label="Map layers">
+        <button class="panel-toggle" type="button"
+          [attr.aria-expanded]="layersPanelOpen()"
+          title="Toggle map layers"
+          (click)="layersPanelOpen.set(!layersPanelOpen())"
+        >
+          <span class="panel-toggle-label">Map Layers</span>
+          <span class="panel-toggle-icon" aria-hidden="true"></span>
+        </button>
+        <div class="panel-body" [hidden]="!layersPanelOpen()">
+          <div class="control-grid">
+            @for (group of layerGroups; track group.name) {
+              <fieldset class="control-group">
+                <legend>{{ group.name }}</legend>
+                <div class="toggle-list">
+                  @for (toggle of group.toggles; track toggle.key) {
+                    <label class="checkline">
+                      <input type="checkbox"
+                        [checked]="getToggleState(toggle.key)"
+                        (change)="onLayerToggle(toggle.key)"
+                      />
+                      <span>{{ toggle.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="right-panel legend-panel" aria-label="Map legend">
+        <button class="panel-toggle" type="button"
+          [attr.aria-expanded]="legendPanelOpen()"
+          title="Toggle legend"
+          (click)="legendPanelOpen.set(!legendPanelOpen())"
+        >
+          <span class="panel-toggle-label">Legend</span>
+          <span class="panel-toggle-icon" aria-hidden="true"></span>
+        </button>
+        <div class="panel-body" [hidden]="!legendPanelOpen()" [innerHTML]="legendHtml()"></div>
+      </div>
+    </div>
+
+    <!-- No-results state -->
+    @if (showEmpty()) {
+      <div class="map-state map-empty">
+        <p class="state-title">No district matches those filters.</p>
+        <p>Clear a filter and widen the search.</p>
+        <button type="button" (click)="clearFilters()">Clear filters</button>
+      </div>
+    }
+  </main>
+
+  <!-- Right sidebar: Comments (shows when a district or searched location is selected) -->
+  @if (activeCommentTarget() !== null) {
+    @if (commentsCollapsed()) {
+      <button
+        class="comments-expand-toggle"
+        type="button"
+        aria-label="Expand comments"
+        title="Expand comments"
+        (click)="toggleComments()"
+      >
+        <span class="panel-collapse-icon" aria-hidden="true"></span>
+        <span class="panel-collapse-label">COMMENTS</span>
+      </button>
+    }
+
+    <div class="sidebar-comments" [class.collapsed]="commentsCollapsed()">
+      <div class="sidebar-header">
+        <div class="sidebar-header-row">
+          <div>
+            <h2>{{ commentPanelTitle() }}</h2>
+            <p class="subtitle">Comments</p>
+          </div>
+          <button
+            class="comments-collapse-btn"
+            type="button"
+            aria-label="Collapse comments"
+            title="Collapse comments"
+            (click)="toggleComments()"
+          >
+            <span class="panel-collapse-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      @if (showCommentForm()) {
+        <app-create-comment
+          [target]="activeCommentTarget()!"
+          (created)="onCommentCreated($event)"
+          (cancelled)="showCommentForm.set(false)">
+        </app-create-comment>
+      } @else if (selectedComment()) {
+        <app-comment-detail
+          [commentId]="selectedComment()!"
+          (back)="selectedComment.set(null)"
+          (changed)="refreshCommentCounts()">
+        </app-comment-detail>
+      } @else {
+        <app-comment-list
+          [target]="activeCommentTarget()!"
+          (selectComment)="selectedComment.set($event)"
+          (newComment)="showCommentForm.set(true)"
+          (changed)="refreshCommentCounts()">
+        </app-comment-list>
+      }
+    </div>
+  }
+</div>

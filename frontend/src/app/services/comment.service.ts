@@ -6,10 +6,15 @@ import { environment } from '../../environments/environment';
 export interface Comment {
   id: number;
   content: string;
-  district_id: number;
+  district_id: number | null;
   created_at: string;
   reply_count?: number;
   replies?: Reply[];
+  location_key?: string | null;
+  location_type?: string | null;
+  location_name?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
 }
 
 export interface Reply {
@@ -18,13 +23,35 @@ export interface Reply {
   created_at: string;
 }
 
-export interface CreateCommentRequest {
-  content: string;
-  district_id: number;
+/** A district or a searched (non-district) location that can receive comments. */
+export type CommentTarget =
+  | { kind: 'district'; districtId: number; label: string }
+  | { kind: 'location'; key: string; type: string; name: string; lat: number; lng: number };
+
+export interface LocationSelection {
+  key: string;
+  type: string; // 'landmark' | 'station' | 'place'
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+export interface LocationMarker {
+  location_key: string;
+  location_type: string;
+  location_name: string;
+  location_lat: number;
+  location_lng: number;
+  count: number;
 }
 
 export interface CreateReplyRequest {
   content: string;
+}
+
+/** Stable identity for a searched location, derived from type + coordinates. */
+export function locationKeyFor(type: string, lat: number, lng: number): string {
+  return `${type}:${Math.round(lat * 1e5)}:${Math.round(lng * 1e5)}`;
 }
 
 const MY_COMMENTS_KEY = 'mapofvienna:myComments';
@@ -53,8 +80,13 @@ export class CommentService {
 
   constructor(private http: HttpClient) { }
 
-  getCommentsByDistrict(districtId: number): Observable<{ results: Comment[] }> {
-    let params = new HttpParams().set('district_id', districtId.toString());
+  getComments(target: CommentTarget): Observable<{ results: Comment[] }> {
+    let params = new HttpParams();
+    if (target.kind === 'district') {
+      params = params.set('district_id', target.districtId.toString());
+    } else {
+      params = params.set('location_key', target.key);
+    }
     return this.http.get<{ results: Comment[] }>(`${this.apiUrl}/`, { params });
   }
 
@@ -66,8 +98,22 @@ export class CommentService {
     return this.http.get<Record<string, number>>(`${this.apiUrl}/counts/`);
   }
 
-  createComment(data: CreateCommentRequest): Observable<Comment> {
-    return this.http.post<Comment>(`${this.apiUrl}/`, data);
+  getLocationMarkers(): Observable<{ markers: LocationMarker[] }> {
+    return this.http.get<{ markers: LocationMarker[] }>(`${this.apiUrl}/location_markers/`);
+  }
+
+  createComment(target: CommentTarget, content: string): Observable<Comment> {
+    const payload: Record<string, unknown> = { content };
+    if (target.kind === 'district') {
+      payload['district_id'] = target.districtId;
+    } else {
+      payload['location_key'] = target.key;
+      payload['location_type'] = target.type;
+      payload['location_name'] = target.name.slice(0, 255);
+      payload['location_lat'] = target.lat;
+      payload['location_lng'] = target.lng;
+    }
+    return this.http.post<Comment>(`${this.apiUrl}/`, payload);
   }
 
   addReply(commentId: number, data: CreateReplyRequest): Observable<Reply> {
