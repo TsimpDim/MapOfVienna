@@ -1,0 +1,21 @@
+services:
+  client:
+    build: .
+    container_name: mapofvienna-client
+    user: "1000:1000"
+    volumes:
+      - .:/app
+    ports:
+      - "4200:4200"
+    environment:
+      - NG_PERSISTENT_BUILD_CACHE=0
+      - MAP_OF_VIENNA_MAP_API_KEY=${MAP_OF_VIENNA_MAP_API_KEY:-}
+    command: sh -c "npm install && node scripts/set-env.js && /app/node_modules/@angular/cli/bin/ng.js serve --live-reload --host 0.0.0.0 --port 4200"
+    networks:
+      mapofvienna:
+        aliases:
+          - "client.mapofvienna.local"
+
+networks:
+  mapofvienna:
+    external: true

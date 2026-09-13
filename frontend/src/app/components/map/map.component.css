@@ -1,0 +1,601 @@
+/* Component host fills app-root */
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* app-shell: full viewport, map-wrap fills everything, panel + comments sidebar are overlays */
+.app-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+}
+
+/* ---- Sidebar collapse toggle ---- */
+.panel-collapse-toggle {
+  position: fixed;
+  top: 12px;
+  left: calc(min(360px, 100vw) - 38px);
+  z-index: 750;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 28px;
+  max-height: 28px;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  will-change: left;
+  transition: left 280ms ease-out;
+}
+
+.panel-collapse-toggle:hover { background: var(--butter); }
+
+.panel-collapse-toggle.active {
+  left: 0;
+  top: 50%;
+  height: 88px;
+  min-height: 88px;
+  max-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--butter);
+  border: var(--line-strong);
+  border-left: 0;
+  border-radius: 0 3px 3px 0;
+  transform: translateY(-50%);
+  transition: left 280ms ease-out;
+}
+
+/* Plus/close icon */
+.panel-collapse-icon {
+  width: 12px;
+  height: 12px;
+  position: relative;
+  pointer-events: none;
+}
+.panel-collapse-icon::before,
+.panel-collapse-icon::after {
+  content: "";
+  position: absolute;
+  background: var(--ink);
+}
+.panel-collapse-icon::before {
+  top: 5px; left: 0; width: 12px; height: 2px;
+}
+.panel-collapse-icon::after {
+  top: 0; left: 5px; width: 2px; height: 12px;
+  transition: transform 260ms ease-out;
+}
+.panel-collapse-toggle:not(.active) .panel-collapse-icon::after { transform: rotate(90deg); }
+
+.panel-collapse-toggle.active .panel-collapse-icon { width: 14px; height: 14px; }
+.panel-collapse-toggle.active .panel-collapse-icon::before { top: 6px; width: 14px; }
+.panel-collapse-toggle.active .panel-collapse-icon::after { left: 6px; height: 14px; }
+
+.panel-collapse-label {
+  display: none;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.panel-collapse-toggle.active .panel-collapse-label {
+  display: block;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+}
+
+/* ---- Comments sidebar expand/collapse controls ---- */
+/* "+ COMMENTS" tab on the right edge while collapsed (mirrors "+ MENU") */
+.comments-expand-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  z-index: 750;
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 88px;
+  min-height: 88px;
+  max-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  margin: 0;
+  background: var(--butter);
+  border: var(--line-strong);
+  border-right: 0;
+  border-radius: 3px 0 0 3px;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.comments-expand-toggle .panel-collapse-icon { width: 14px; height: 14px; }
+.comments-expand-toggle .panel-collapse-icon::before { top: 6px; width: 14px; }
+.comments-expand-toggle .panel-collapse-icon::after { left: 6px; height: 14px; }
+.comments-expand-toggle .panel-collapse-label {
+  display: block;
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+}
+
+/* "-" collapse button in the comments header (mirrors the left panel's toggle button) */
+.comments-collapse-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.comments-collapse-btn:hover { background: var(--butter); }
+.comments-collapse-btn .panel-collapse-icon::after { transform: rotate(90deg); }
+
+/* ---- Left panel ---- */
+.panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(360px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  padding: 22px 18px 28px;
+  overflow-y: auto;
+  background: var(--paper);
+  border-right: var(--line-strong);
+  transform: translateX(0);
+  transition: transform 280ms ease-out;
+}
+.panel.collapsed {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+/* ---- Panel header ---- */
+.panel-header { padding: 2px 4px 4px; }
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.kicker span {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: var(--ink);
+  background: var(--butter);
+  border: var(--line);
+  border-radius: 50%;
+  letter-spacing: 0;
+}
+
+.panel-header h1 {
+  max-width: 8ch;
+  margin: 0;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.88;
+}
+.panel-header > p:last-child {
+  max-width: 31ch;
+  margin: 15px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+/* ---- Cards ---- */
+.card {
+  padding: 14px;
+  background: var(--paper-bright);
+  border: var(--line);
+}
+.selected-card { background: #fffaf0; }
+
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(57, 52, 46, 0.3);
+}
+.section-heading h2,
+.card h2 {
+  margin: 0;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.card-intro { margin: 5px 0 12px; color: var(--ink-soft); font-size: 0.8rem; }
+
+/* ---- Text button ---- */
+.text-button {
+  width: auto;
+  padding: 0;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.text-button:hover { color: var(--ink); }
+
+/* ---- District info ---- */
+.district-info {
+  max-height: 34vh;
+  overflow: auto;
+  padding: 13px 2px 2px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+/* ---- Comparison cards ---- */
+.comparison-info { padding: 12px 0 0; }
+.comparison-label {
+  margin: 0 0 7px;
+  color: var(--ink-soft);
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.comparison-set { display: grid; gap: 8px; }
+.compare-card {
+  position: relative;
+  padding: 10px 28px 10px 10px;
+  border: var(--line);
+}
+.compare-card:nth-child(3n+1) { background: var(--peach); }
+.compare-card:nth-child(3n+2) { background: var(--mint); }
+.compare-card:nth-child(3n+3) { background: var(--lavender); }
+.compare-card h3 { margin: 0; font-family: "Outfit", Arial, sans-serif; font-size: 0.98rem; letter-spacing: -0.02em; }
+.compare-card p { margin: 4px 0 0; font-size: 0.76rem; line-height: 1.35; }
+.compare-remove {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0;
+  background: var(--paper-bright);
+  border: 1px solid var(--outline);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ---- Field labels, inputs, selects, buttons ---- */
+.field-label {
+  display: block;
+  margin: 13px 0 6px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+input[type="text"],
+select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: var(--line);
+  border-radius: 2px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  font: inherit;
+}
+input[type="text"]::placeholder { color: #746b60; opacity: 1; }
+select { appearance: auto; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  min-height: 34px !important;
+  padding: 5px 9px !important;
+  background: var(--paper) !important;
+  border: var(--line) !important;
+  border-radius: 999px !important;
+  font-family: "Inter", Arial, sans-serif !important;
+  font-size: 0.76rem !important;
+  cursor: pointer;
+}
+.chip.active { color: var(--ink); background: var(--rose) !important; border-width: 2px !important; }
+
+.button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.button-row button {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.button-row button:hover { background: var(--butter); }
+
+/* ---- Control groups (layer toggles) ---- */
+.control-grid { display: grid; gap: 12px; }
+.control-group { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.control-group + .control-group { border-top: 1px solid rgba(57, 52, 46, 0.3); }
+.control-group legend {
+  width: 100%;
+  padding: 0 0 7px;
+  color: var(--ink-soft);
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.toggle-list { display: grid; gap: 7px; }
+.checkline { display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; font-size: 0.82rem; }
+.checkline input { width: 17px; height: 17px; margin: 0; accent-color: var(--active); }
+
+/* ---- Map area ---- */
+.map-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--paper-deep);
+}
+
+#map { width: 100%; height: 100%; min-height: 100vh; min-height: 100dvh; background: var(--paper-deep); }
+
+/* ---- Right panels (floating over map) ---- */
+.right-panels {
+  position: absolute;
+  top: 17px;
+  right: 60px;
+  z-index: 700;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+}
+
+/* When the comments sidebar is open it covers the right edge, so hide the floating controls */
+.app-shell.comments-expanded .right-panels { display: none; }
+
+.right-panel {
+  background: var(--paper-bright);
+  border: var(--line);
+  overflow: hidden;
+}
+
+.panel-toggle {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 9px;
+  background: var(--paper-bright);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.panel-toggle:hover { background: var(--butter); }
+
+.panel-toggle-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.panel-toggle-icon {
+  width: 14px; height: 14px; position: relative; flex-shrink: 0;
+}
+.panel-toggle-icon::before,
+.panel-toggle-icon::after {
+  content: ""; position: absolute; background: var(--ink); transition: transform 160ms ease-out;
+}
+.panel-toggle-icon::before { top: 6px; left: 2px; width: 10px; height: 2px; }
+.panel-toggle-icon::after { top: 2px; left: 6px; width: 2px; height: 10px; }
+.panel-toggle[aria-expanded="true"] .panel-toggle-icon::after { transform: rotate(90deg); }
+
+.panel-body {
+  padding: 8px 9px 10px;
+  border-top: 1px solid rgba(57, 52, 46, 0.3);
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+/* ---- Map states (empty/error) ---- */
+.map-state {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 900;
+  width: min(330px, calc(100% - 32px));
+  padding: 20px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line-strong);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+.map-state p { margin: 0; font-size: 0.88rem; }
+.map-state p + p { margin-top: 6px; color: var(--ink-soft); }
+.state-title { font-family: "Outfit", Arial, sans-serif; font-size: 1.2rem !important; font-weight: 700; letter-spacing: -0.025em; }
+.map-state button {
+  width: 100%;
+  margin-top: 14px;
+  padding: 8px 10px;
+  background: var(--butter);
+  border: var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+  min-height: 42px;
+}
+
+/* ---- Comments sidebar (fixed on right, overlays the map) ---- */
+.sidebar-comments {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(360px, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  background: var(--paper);
+  border-left: var(--line-strong);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 700;
+  box-shadow: -2px 0 8px rgba(45, 42, 38, 0.08);
+  transform: translateX(0);
+  transition: transform 280ms ease-out;
+}
+.sidebar-comments.collapsed {
+  transform: translateX(100%);
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 16px 18px;
+  border-bottom: var(--line-strong);
+  background: var(--paper-deep);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.sidebar-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sidebar-header h2 {
+  margin: 0 0 2px 0;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sidebar-header .subtitle { margin: 0; font-size: 12px; color: var(--ink-soft); }
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .panel { width: 100vw; padding: 18px 14px 28px; border-right: 0; border-top: var(--line-strong); }
+  .panel-collapse-toggle:not(.active) { left: calc(100vw - 38px); }
+  .map-wrap { margin-left: 0 !important; }
+  .app-shell.panel-expanded .right-panels { display: none; }
+  .app-shell.comments-expanded .panel-collapse-toggle { display: none; }
+  .app-shell.panel-expanded .comments-expand-toggle { display: none; }
+  .sidebar-comments { width: 100vw; }
+  .right-panels { top: 100px; right: 48px; max-width: 160px; }
+  .right-panels .panel-toggle { font-size: 0.66rem; min-height: 30px; padding: 5px 7px; }
+  .right-panels .panel-body { max-height: 32vh; font-size: 0.72rem; }
+  .panel-header h1 { max-width: none; font-size: 2.25rem; }
+  .comparison-set { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .panel { padding: 16px 12px 24px; }
+  .panel-collapse-toggle:not(.active) { left: calc(100vw - 34px); width: 26px; height: 26px; min-width: 26px; min-height: 26px; max-width: 26px; max-height: 26px; }
+  .panel-header h1 { font-size: 1.9rem; }
+  .comparison-set { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 560px) {
+  .panel { padding: 14px 10px 22px; }
+  .panel-collapse-toggle.active { height: 72px; min-height: 72px; max-height: 72px; }
+  .comments-expand-toggle { height: 72px; min-height: 72px; max-height: 72px; }
+  .right-panels {
+    top: auto; bottom: 12px; right: 8px; left: 8px; width: auto; max-width: none;
+    flex-direction: row; gap: 6px;
+  }
+  .right-panels .right-panel { flex: 1; min-width: 0; position: relative; overflow: visible; }
+  .right-panels .panel-toggle { font-size: 0.56rem; min-height: 26px; padding: 3px 5px; }
+  .right-panels .panel-body {
+    position: absolute; bottom: 100%; left: 0; right: 0;
+    max-height: 24vh; font-size: 0.64rem; padding: 6px 7px 8px;
+    border-top: 0; border-bottom: 1px solid rgba(57, 52, 46, 0.3);
+  }
+  .comparison-set { grid-template-columns: 1fr; }
+  .panel-collapse-label { font-size: 0.5rem; }
+}
+
+@media (max-width: 360px) {
+  .panel { padding: 12px 10px 18px; }
+  .panel-header h1 { font-size: 1.8rem; }
+  .panel-header > p:last-child { font-size: 0.82rem; }
+  .card { padding: 11px; }
+  .chip { font-size: 0.7rem !important; padding: 4px 7px !important; }
+  .sidebar-header { padding: 12px 14px; }
+  .sidebar-header h2 { font-size: 14px; }
+  .right-panels { gap: 4px; right: 6px; left: 6px; }
+  .right-panels .panel-toggle { font-size: 0.54rem; padding: 3px 4px; }
+  .right-panels .panel-body { font-size: 0.62rem; padding: 5px 6px 7px; }
+}

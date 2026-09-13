@@ -1,0 +1,394 @@
+/* Map of Vienna — design system ported from reference styles.css */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap");
+
+:root {
+  --paper: #fff7e8;
+  --paper-bright: #fffdf7;
+  --paper-deep: #f5ead6;
+  --ink: #2d2a26;
+  --ink-soft: #665f56;
+  --outline: #39342e;
+  --peach: #f3b59f;
+  --mint: #a8d9c3;
+  --lavender: #c5b8e7;
+  --sky: #a8d2e8;
+  --butter: #f6df8a;
+  --rose: #eca9bb;
+  --active: #f08b62;
+  --connected: #94d3c0;
+  --focus: #2d2a26;
+  --line: 1.5px solid var(--outline);
+  --line-strong: 2px solid var(--outline);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--paper); }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+button, input, select { font: inherit; color: inherit; }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+html, body {
+  height: 100%;
+}
+
+app-root {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--outline); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+
+/* ================================================================
+   Leaflet overrides (must be global — outside component shadow)
+   ================================================================ */
+
+.leaflet-container { font-family: "Inter", Arial, sans-serif; background: var(--paper-deep); }
+.leaflet-control-zoom { margin: 16px !important; border: var(--line-strong) !important; border-radius: 0 !important; box-shadow: none !important; }
+.leaflet-control-zoom a { width: 34px !important; height: 34px !important; color: var(--ink) !important; background: var(--paper-bright) !important; border-radius: 0 !important; line-height: 32px !important; }
+.leaflet-control-zoom a:hover { background: var(--butter) !important; }
+.leaflet-control-zoom a + a { border-top: var(--line) !important; }
+.leaflet-control-attribution { display: none; }
+
+/* Hide the map zoom control when an expanded sidebar covers the right edge */
+.app-shell.comments-expanded .leaflet-control-zoom { display: none !important; }
+@media (max-width: 900px) {
+  .app-shell.panel-expanded .leaflet-control-zoom { display: none !important; }
+}
+
+/* ================================================================
+   District labels & badges (DivIcon — must be global)
+   ================================================================ */
+
+.district-label {
+  pointer-events: none;
+}
+.district-label .district-label-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 190px;
+  padding: 3px 5px;
+  color: var(--ink);
+  background: rgba(255, 253, 247, 0.78);
+  border: 1px solid var(--outline);
+  border-radius: 1px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  text-align: center;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.district-label.dim .district-label-inner { opacity: 0.25; }
+
+.district-comment-count {
+  pointer-events: none;
+}
+.district-comment-count-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translate(-50%, calc(-50% - 18px));
+}
+.district-comment-count-inner svg { flex-shrink: 0; }
+.district-comment-count-num { font-variant-numeric: tabular-nums; }
+
+.district-badge {
+  transform: translate(-50%, -50%);
+  display: inline-block;
+  max-width: 220px;
+  padding: 3px 6px;
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: 1px solid var(--outline);
+  border-radius: 1px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Bubble stack badge system */
+.district-badge.bubble-stack {
+  transform: none;
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.district-badge .bubble-stack-inner {
+  position: relative;
+  display: inline-block;
+  max-width: 230px;
+  padding: 3px 6px;
+  transform: translate(-50%, var(--bubble-offset, 18px));
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: 1px solid var(--outline);
+  border-radius: 1px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.district-badge.cost-indicator .bubble-stack-inner {
+  background: var(--butter);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.district-badge.cost .bubble-stack-inner {
+  min-width: 190px;
+  max-width: 280px;
+  background: var(--lavender);
+  white-space: normal;
+}
+.cost-pill-title { margin-bottom: 2px; font-size: 0.73rem; font-weight: 800; }
+.cost-pill-text { font-size: 0.69rem; }
+
+/* ================================================================
+   Station icons
+   ================================================================ */
+
+.station-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: transform 120ms ease-out;
+}
+.station-icon:hover { transform: scale(1.14); }
+.station-icon.dual-selected { background: var(--butter); border: 1px solid var(--outline); border-radius: 50%; }
+
+/* ================================================================
+   Tooltips
+   ================================================================ */
+
+.station-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.74rem;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 4px 8px;
+}
+.station-tooltip::before { display: none; }
+
+.line-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 3px 7px;
+}
+.line-tooltip::before { display: none; }
+
+.safety-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.74rem;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 6px 9px;
+}
+.safety-tooltip::before { display: none; }
+.safety-tooltip-title { margin-bottom: 4px; font-family: "Outfit", Arial, sans-serif; font-weight: 700; }
+.safety-tooltip-level { display: inline-block; margin-bottom: 4px; padding: 1px 6px; border: 1px solid var(--outline); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.safety-tooltip-text { color: var(--ink-soft); font-size: 0.71rem; line-height: 1.4; }
+.safety-tooltip-district { margin-top: 3px; color: var(--ink-soft); font-size: 0.66rem; font-style: italic; }
+
+.food-tooltip {
+  color: var(--ink);
+  background: var(--paper-bright);
+  border: var(--line);
+  border-radius: 1px;
+  box-shadow: none;
+  font-family: "Inter", Arial, sans-serif;
+  font-size: 0.74rem;
+  width: max-content;
+  max-width: min(400px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 6px 9px;
+}
+.food-tooltip::before { display: none; }
+.food-tooltip-title { margin-bottom: 4px; font-family: "Outfit", Arial, sans-serif; font-weight: 700; }
+.food-tooltip-type { display: inline-block; margin-bottom: 4px; padding: 1px 6px; border: 1px solid var(--outline); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+.food-tooltip-text { color: var(--ink-soft); font-size: 0.71rem; line-height: 1.4; }
+.food-tooltip-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px; }
+.food-tooltip-tag { padding: 1px 5px; background: var(--paper-deep); border: 1px solid var(--outline); font-size: 0.64rem; font-weight: 600; }
+
+/* ================================================================
+   District info panel (inside left panel, globally styled)
+   ================================================================ */
+
+.district-info h3 {
+  margin: 0 0 5px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: -0.03em;
+}
+.district-info p { margin: 10px 0 5px; }
+.district-info ul { margin: 5px 0 10px; padding-left: 19px; }
+.district-info li { margin: 2px 0; }
+.district-info a { color: var(--ink); font-weight: 700; text-decoration-color: var(--active); text-decoration-thickness: 2px; }
+.muted { color: var(--ink-soft); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 12px; }
+.tag {
+  padding: 2px 7px;
+  background: var(--lavender);
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.mono { font-variant-numeric: tabular-nums; font-weight: 700; }
+.connection-item { padding: 5px 0; border-top: 1px solid rgba(57, 52, 46, 0.25); }
+
+/* ================================================================
+   Legend panel items
+   ================================================================ */
+
+.legend-section-title {
+  margin: 8px 0 4px;
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.legend-section-title:first-child { margin-top: 0; }
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 0.73rem;
+}
+.legend-row.muted { color: var(--ink-soft); }
+
+.legend-swatch { flex-shrink: 0; width: 18px; height: 4px; border: 1px solid var(--outline); }
+.legend-dot { flex-shrink: 0; width: 10px; height: 10px; border: 1px solid var(--outline); border-radius: 50%; }
+.legend-circle { flex-shrink: 0; width: 12px; height: 12px; border: 1px solid var(--outline); border-radius: 50%; }
+.legend-dash { flex-shrink: 0; width: 18px; height: 2px; opacity: 0.86; }
+.legend-icon { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
+.legend-text {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 4px;
+  min-width: 24px;
+  background: rgba(255,253,247,0.85);
+  border: 1px solid var(--outline);
+  font-family: "Outfit", Arial, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.legend-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 1px 3px;
+  background: var(--butter);
+  border: 1px solid var(--outline);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+/* ================================================================
+   Tiny screens (very small phones)
+   ================================================================ */
+@media (max-width: 380px) {
+  .district-label .district-label-inner {
+    max-width: 140px;
+    padding: 2px 4px;
+    font-size: 0.66rem;
+  }
+  .district-badge {
+    max-width: 170px;
+    font-size: 0.64rem;
+  }
+  .district-badge .bubble-stack-inner {
+    max-width: 180px;
+    font-size: 0.64rem;
+  }
+  .district-badge.cost .bubble-stack-inner {
+    min-width: 150px;
+    max-width: 220px;
+  }
+  .district-comment-count-inner {
+    padding: 2px 5px;
+    font-size: 0.62rem;
+  }
+}
+
+/* ================================================================
+   Reduced motion
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
