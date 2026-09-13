@@ -41,7 +41,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'comments_api.wsgi.application'
+ASGI_APPLICATION = 'comments_api.asgi.application'
 
 DATABASES = {
     'default': {

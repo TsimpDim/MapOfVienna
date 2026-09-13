@@ -1,7 +1,7 @@
 import os
 
-# Django WSGI application path in pattern MODULE_NAME:VARIABLE_NAME
-wsgi_app = "comments_api.wsgi:application"
+# Django ASGI application path in pattern MODULE_NAME:VARIABLE_NAME
+wsgi_app = "comments_api.asgi:application"
 
 # The granularity of Error log outputs
 loglevel = "info"
