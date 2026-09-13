@@ -8,7 +8,7 @@
     }
   },
   "projects": {
-    "mapofvienna-threads": {
+    "mapofvienna": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -22,7 +22,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "outputPath": "dist/mapofvienna-threads",
+            "outputPath": "dist/mapofvienna",
             "index": "src/index.html",
             "main": "src/main.ts",
             "polyfills": [
@@ -83,12 +83,12 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "mapofvienna-threads:build:production",
+              "buildTarget": "mapofvienna:build:production",
               "host": "0.0.0.0",
               "port": 4200
             },
             "development": {
-              "buildTarget": "mapofvienna-threads:build:development",
+              "buildTarget": "mapofvienna:build:development",
               "host": "0.0.0.0",
               "port": 4200
             }

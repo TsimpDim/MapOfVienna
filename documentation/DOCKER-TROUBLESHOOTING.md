@@ -207,10 +207,10 @@ docker compose exec frontend ls -la node_modules/@angular
 
 ```bash
 # Get container IP
-docker inspect mapofvienna-threads-api | grep IPAddress
+docker inspect mapofvienna-api | grep IPAddress
 
 # Get full container info
-docker inspect mapofvienna-threads-ui
+docker inspect mapofvienna-client
 ```
 
 ## Reset Everything

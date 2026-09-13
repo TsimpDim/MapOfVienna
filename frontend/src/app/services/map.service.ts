@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { MapStateService } from './map-state.service';
-import { environment } from '../../environments/environment';
+import { MAP_OF_VIENNA_MAP_API_KEY } from '../../generated/map-api-key';
 import * as L from 'leaflet';
 import {
   LINE_STYLES, LINE_ROUTES, TRAM_CORRIDORS, MAIN_ROUTES,
@@ -139,7 +139,7 @@ export class MapService {
     (this.map.getPane(BADGE_PANE) as HTMLElement).style.zIndex = '640';
     (this.map.getPane(COMMENT_PANE) as HTMLElement).style.zIndex = '660';
 
-    const mapApiKey = environment.mapApiKey;
+    const mapApiKey = MAP_OF_VIENNA_MAP_API_KEY;
     const keyParam = mapApiKey ? `?key=${encodeURIComponent(mapApiKey)}` : '';
     const tileUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png${keyParam}`;
     L.tileLayer(tileUrl, {

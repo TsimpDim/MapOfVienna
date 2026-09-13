@@ -6,3 +6,4 @@ kilo.json
 node_modules
 gtag-config.js
 .angular
+frontend/src/generated/

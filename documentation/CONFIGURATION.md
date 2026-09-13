@@ -69,7 +69,7 @@ DATABASES = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'mapofvienna_threads',
+        'NAME': 'mapofvienna',
         'USER': 'root',
         'PASSWORD': 'password',
         'HOST': 'localhost',
@@ -85,7 +85,7 @@ Then install: `pip install mysqlclient`
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'mapofvienna_threads',
+        'NAME': 'mapofvienna',
         'USER': 'postgres',
         'PASSWORD': 'password',
         'HOST': 'localhost',
@@ -188,11 +188,11 @@ Edit `frontend/angular.json`:
 ```json
 {
   "projects": {
-    "mapofvienna-threads": {
+    "mapofvienna": {
       "architect": {
         "build": {
           "options": {
-            "outputPath": "dist/mapofvienna-threads",
+            "outputPath": "dist/mapofvienna",
             "index": "src/index.html",
             "main": "src/main.ts"
           }
