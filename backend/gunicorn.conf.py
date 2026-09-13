@@ -1,19 +1,32 @@
-bind = "0.0.0.0:8000"
+import os
 
-workers = 3
-threads = 1
-worker_class = "sync"
+# Django WSGI application path in pattern MODULE_NAME:VARIABLE_NAME
+wsgi_app = "comments_api.wsgi:application"
 
-timeout = 120
-graceful_timeout = 30
-keepalive = 5
-
-max_requests = 1000
-max_requests_jitter = 50
-
-accesslog = "-"
-errorlog = "-"
+# The granularity of Error log outputs
 loglevel = "info"
 
+# The number of worker processes for handling requests
+workers = 1
+
+# The socket to bind
+#bind = "/run/gunicorn.sock"
+bind = "0.0.0.0:4210"
+
+# Don't restart workers when code changes (development only!)
+reload = False
+
+# Write access and error info to /var/log
+accesslog = errorlog = "var/log/prod.log"
+
+# Redirect stdout/stderr to log file
 capture_output = True
-enable_stdio_inheritance = True
+
+# PID file so you can easily fetch process ID
+pidfile = "var/run/prod.pid"
+
+# Daemonize the Gunicorn process (detach & enter background)
+daemon = True
+
+# ASGI Uvicorn worker class (instead of WSGI)
+worker_class = "uvicorn.workers.UvicornWorker"
